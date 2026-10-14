@@ -4,36 +4,45 @@ var CatalogService = (function () {
   }
   function getAll() {
     var user = Auth.current();
-    var teachers = active_('TEACHERS');
     var users = [];
     try { users = active_('USERS'); } catch (e) {}
+    var teachers = [];
+    try { teachers = active_('TEACHERS'); } catch (e) {}
 
-    if (teachers.length === 0 && users.length > 0) {
-      teachers = users.map(function (u) {
-        return {
+    var knownIds = {};
+    teachers.forEach(function (t) {
+      if (t.teacher_id) knownIds[String(t.teacher_id)] = true;
+      if (t.user_id) knownIds[String(t.user_id)] = true;
+      if (t.email) knownIds[String(t.email).toLowerCase()] = true;
+    });
+
+    users.forEach(function (u) {
+      var uid = String(u.user_id || ''), uEmail = String(u.email || '').toLowerCase();
+      if (!knownIds[uid] && (!uEmail || !knownIds[uEmail])) {
+        teachers.push({
           teacher_id: u.user_id,
-          teacher_code: u.user_code || ('DOC-' + String(u.user_id).slice(0, 6).toUpperCase()),
+          teacher_code: u.user_code || ('DOC-' + uid.slice(0, 6).toUpperCase()),
           institution_id: u.institution_id,
           identity_reference: u.identity_reference || '',
           full_name: u.display_name,
           email: u.email || '',
           position: u.position || 'Docente',
           role: u.role,
-          active: u.active
-        };
-      });
-    }
+          active: u.active,
+          user_id: u.user_id
+        });
+      }
+    });
 
     var userRoles = String(user.role || '').split(',').map(function (r) { return r.trim().toUpperCase(); });
     var isAdmin = userRoles.indexOf('ADMIN') >= 0;
 
     if (!isAdmin) {
-      var assigned = {}, today = new Date().toISOString().slice(0, 10);
+      var assigned = {};
       try {
         active_('EVALUATOR_ASSIGNMENTS').forEach(function (row) {
-          if (String(row.evaluator_user_id) === String(user.user_id) &&
-              (!row.effective_from || String(row.effective_from).slice(0, 10) <= today) &&
-              (!row.effective_to || String(row.effective_to).slice(0, 10) >= today)) {
+          if ((String(row.evaluator_user_id) === String(user.user_id) || String(row.co_evaluator_user_id) === String(user.user_id)) &&
+              String(row.active).toLowerCase() !== 'false') {
             assigned[String(row.teacher_id)] = true;
           }
         });
@@ -83,6 +92,7 @@ var CatalogService = (function () {
           teacher_id: a.teacher_id,
           teacher_name: tch.full_name || tch.display_name || a.teacher_id,
           teacher_position: tch.position || 'Docente',
+          planned_date: a.planned_date || a.effective_from || '',
           effective_from: a.effective_from || '',
           effective_to: a.effective_to || '',
           active: a.active

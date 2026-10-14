@@ -89,15 +89,14 @@ var Auth = (function () {
     if (!(edit ? canEditVisit(user, visit) : canViewVisit(user, visit))) throw AppErrors.forbidden();
   }
   function hasActiveAssignment(user, teacher, visitDate) {
-    if (user.role === 'ADMIN') return true;
-    if (['DIRECTIVE','EVALUATOR'].indexOf(String(user.role)) < 0) return false;
-    var date = String(visitDate || '').slice(0,10);
+    var userRoles = userRoles_(user);
+    if (userRoles.indexOf('ADMIN') >= 0) return true;
+    var canEval = ['DIRECTIVE', 'EVALUATOR'].some(function (r) { return userRoles.indexOf(r) >= 0; });
+    if (!canEval) return false;
     return SheetsRepository.filter('EVALUATOR_ASSIGNMENTS', function (row) {
       return String(row.active).toLowerCase() !== 'false' &&
-        String(row.evaluator_user_id) === String(user.user_id) &&
-        String(row.teacher_id) === String(teacher.teacher_id || teacher.user_id) &&
-        (!row.effective_from || String(row.effective_from).slice(0,10) <= date) &&
-        (!row.effective_to || String(row.effective_to).slice(0,10) >= date);
+        (String(row.evaluator_user_id) === String(user.user_id) || String(row.co_evaluator_user_id) === String(user.user_id)) &&
+        (String(row.teacher_id) === String(teacher.teacher_id) || String(row.teacher_id) === String(teacher.user_id));
     }).length > 0;
   }
   function assertCanCreate(user, teacher, visitDate) {

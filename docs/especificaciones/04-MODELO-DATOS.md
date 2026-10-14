@@ -37,17 +37,27 @@ Solo configuración no secreta. Los secretos viven en propiedades protegidas.
 
 ### `USERS`
 
-`user_id`, `email`, `display_name`, `role`, `institution_id`, `active`, `created_at`, `updated_at`, `last_access_at`.
+`user_id`, `email`, `display_name`, `role`, `institution_id`, `position`, `user_code`, `identity_reference`, `active`, `created_at`, `updated_at`, `last_access_at`.
 
-Roles: `ADMIN`, `DIRECTIVE`, `EVALUATOR`, `TEACHER`. Las cuentas `TEACHER` se vinculan opcionalmente con su ficha mediante `TEACHERS.user_id`.
+Roles soportados: `ADMIN`, `DIRECTIVE`, `EVALUATOR`, `DOCENTE` (o `TEACHER`), `SECRETARIA`, `VIEWER`.
+La tabla `USERS` representa la **fuente única de verdad** para todo el personal institucional (directivos, evaluadores, docentes y administrativos).
 
-### `TEACHERS`
+### `TEACHERS` (Compatibilidad / Deprecada)
 
-`teacher_id`, `teacher_code`, `institution_id`, `identity_reference` opcional, `full_name`, `email` opcional, `active`, `created_at`, `updated_at`, `user_id` opcional FK a `USERS`.
+`teacher_id`, `teacher_code`, `institution_id`, `identity_reference`, `full_name`, `email`, `active`, `created_at`, `updated_at`, `user_id`.
 
-`user_id` vincula la ficha docente con su cuenta de acceso cuando la misma persona actúa como evaluador o directivo. El docente sigue siendo la entidad maestra y no se vuelve a ingresar manualmente en `USERS`.
+Entidad mantenida exclusivamente para compatibilidad con hojas de cálculo existentes y sincronizada automáticamente desde `USERS`. En la interfaz de usuario no existe formulario ni tabla separada de docentes; toda la gestión se realiza en la sección única de personal institucional (`USERS`).
 
-Evitar cédula si no es necesaria. Si se usa, definir protección y retención.
+### `EVALUATOR_ASSIGNMENTS`
+
+`assignment_id`, `evaluator_user_id`, `teacher_id`, `planned_date`, `effective_from`, `effective_to`, `active`, `created_at`, `created_by`, `co_evaluator_user_id`.
+
+Planificación de observaciones áulicas:
+- `evaluator_user_id`: Evaluador principal responsable.
+- `co_evaluator_user_id`: Segundo evaluador o coevaluador institucional (opcional).
+- `teacher_id`: Docente a observar (`user_id` de la tabla `USERS`).
+- `planned_date`: Fecha planificada de la visita áulica. Al iniciar una nueva evaluación, se sugiere de forma predeterminada permitiendo ajustar la fecha real de la visita. Se omiten los rangos rígidos de vigencia desde/hasta.
+
 
 ### `RUBRIC_VERSIONS`
 
@@ -125,10 +135,11 @@ Tipos: `ANNEX_1`, `ANNEX_2`, `ANNEX_3`, `ANNEX_5`, `FULL_PACKAGE`.
 
 ```text
 INSTITUTIONS 1---N USERS
-INSTITUTIONS 1---N TEACHERS
-USERS        0---1 TEACHERS (cuenta vinculada opcional)
-TEACHERS     1---N VISITS
-USERS        1---N VISITS (evaluator)
+USERS (docente/observado) 1---N VISITS
+USERS (evaluador ppal)   1---N VISITS
+USERS (co-evaluador)     0---N VISITS
+USERS (evaluador ppal)   1---N EVALUATOR_ASSIGNMENTS
+USERS (docente)          1---N EVALUATOR_ASSIGNMENTS
 RUBRIC_VERSIONS 1---N RUBRIC_CRITERIA
 VISITS 1---N VISIT_GENERAL_RESPONSES
 VISITS 1---N VISIT_RUBRIC_RESPONSES

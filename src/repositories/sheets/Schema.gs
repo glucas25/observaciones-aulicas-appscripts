@@ -236,6 +236,7 @@ var SheetSchema = (function () {
     EVALUATOR_ASSIGNMENTS: ['assignment_id',
       'evaluator_user_id',
       'teacher_id',
+      'planned_date',
       'effective_from',
       'effective_to',
       'active',

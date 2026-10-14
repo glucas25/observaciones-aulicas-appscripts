@@ -47,7 +47,7 @@ var AdminService = (function () {
     var rawRoles = Array.isArray(dto.roles) ? dto.roles.join(',') : String(dto.role || 'TEACHER');
     var rolesList = rawRoles.split(',').map(function (r) { return r.trim().toUpperCase(); }).filter(Boolean);
     if (rolesList.length === 0) rolesList = ['TEACHER'];
-    var valid = ['ADMIN', 'DIRECTIVE', 'EVALUATOR', 'TEACHER', 'VIEWER'];
+    var valid = ['ADMIN', 'DIRECTIVE', 'EVALUATOR', 'TEACHER', 'DOCENTE', 'SECRETARIA', 'VIEWER'];
     rolesList.forEach(function (r) {
       if (valid.indexOf(r) < 0) throw AppErrors.validation('Rol inválido: ' + r);
     });
@@ -84,6 +84,21 @@ var AdminService = (function () {
       last_access_at: current ? current.last_access_at : ''
     };
     SheetsRepository.upsert('USERS', ['user_id'], row);
+    try {
+      var tchRow = {
+        teacher_id: row.user_id,
+        teacher_code: row.user_code,
+        institution_id: row.institution_id,
+        identity_reference: row.identity_reference || '',
+        full_name: row.display_name,
+        email: row.email,
+        active: row.active,
+        created_at: row.created_at,
+        updated_at: now,
+        user_id: row.user_id
+      };
+      SheetsRepository.upsert('TEACHERS', ['teacher_id'], tchRow);
+    } catch (e) {}
     Audit.write(actor, 'USER_SAVED', 'USER', row.user_id, '', requestId, 'SUCCESS', 'Personal institucional guardado');
     return row;
   }
@@ -143,22 +158,32 @@ var AdminService = (function () {
     var canEval = ['ADMIN', 'DIRECTIVE', 'EVALUATOR'].some(function (r) { return evRoles.indexOf(r) >= 0; });
     if (!canEval) throw AppErrors.validation('El usuario seleccionado no tiene permiso para evaluar (ADMIN, DIRECTIVE o EVALUATOR).');
 
-    // Validar docente
-    var teacher = SheetsRepository.find('TEACHERS', 'teacher_id', String(dto.teacherId || '')) || SheetsRepository.find('USERS', 'user_id', String(dto.teacherId || ''));
+    // Validar docente (prioriza USERS, fallback a TEACHERS)
+    var teacher = SheetsRepository.find('USERS', 'user_id', String(dto.teacherId || '')) || SheetsRepository.find('TEACHERS', 'teacher_id', String(dto.teacherId || ''));
     if (!teacher || (activating && String(teacher.active).toLowerCase() === 'false')) throw AppErrors.validation('El docente no existe o está inactivo.');
+    var tchId = String(teacher.teacher_id || teacher.user_id);
+
+    // Un docente no debe tener múltiples asignaciones activas simultáneas
+    if (activating) {
+      var existingActive = SheetsRepository.filter('EVALUATOR_ASSIGNMENTS', function (a) {
+        return String(a.active).toLowerCase() !== 'false' &&
+          String(a.teacher_id) === tchId &&
+          String(a.assignment_id) !== String(dto.assignmentId || '');
+      })[0];
+      if (existingActive) throw AppErrors.validation('El docente ya tiene una asignación activa registrada.');
+    }
 
     // Misma institución
     if (String(evaluator.institution_id) !== String(teacher.institution_id)) throw AppErrors.validation('El evaluador y el docente deben pertenecer a la misma institución.');
 
     // No autoevaluación
-    var evId = String(evaluator.user_id), tchId = String(teacher.teacher_id || teacher.user_id);
+    var evId = String(evaluator.user_id);
     if (evId === tchId) throw AppErrors.validation('Un evaluador no puede ser asignado a observarse a sí mismo.');
     var evEmail = String(evaluator.email || '').trim().toLowerCase(), tchEmail = String(teacher.email || '').trim().toLowerCase();
     if (evEmail && tchEmail && evEmail === tchEmail) throw AppErrors.validation('Un evaluador no puede ser asignado a observarse a sí mismo.');
 
-    // Vigencia coherente
-    var from = dto.effectiveFrom ? String(dto.effectiveFrom).slice(0, 10) : '', to = dto.effectiveTo ? String(dto.effectiveTo).slice(0, 10) : '';
-    if (from && to && from > to) throw AppErrors.validation('La fecha de inicio no puede ser posterior a la fecha de fin.');
+    // Fecha planificada
+    var plannedDate = dto.plannedDate ? String(dto.plannedDate).slice(0, 10) : (dto.effectiveFrom ? String(dto.effectiveFrom).slice(0, 10) : '');
 
     // Validar segundo evaluador si se envía
     var coId = '';
@@ -178,8 +203,9 @@ var AdminService = (function () {
       assignment_id: dto.assignmentId || Utilities.getUuid(),
       evaluator_user_id: evaluator.user_id,
       teacher_id: tchId,
-      effective_from: from,
-      effective_to: to,
+      planned_date: plannedDate,
+      effective_from: plannedDate,
+      effective_to: dto.effectiveTo ? String(dto.effectiveTo).slice(0, 10) : '',
       active: dto.active !== false,
       created_at: current ? current.created_at : now,
       created_by: current ? current.created_by : actor.user_id,
@@ -191,34 +217,30 @@ var AdminService = (function () {
   }
   function data() {
     Auth.requireRoles(['ADMIN']);
-    var users = [], teachers = [], institutions = [], assignments = [], auditRows = [];
+    var users = [], teachers = [], institutions = [], assignments = [];
     try { users = SheetsRepository.all('USERS'); } catch (e) { console.warn('USERS unavailable: ' + e.message); }
     try { institutions = SheetsRepository.all('INSTITUTIONS'); } catch (e) { console.warn('INSTITUTIONS unavailable: ' + e.message); }
     try { assignments = SheetsRepository.all('EVALUATOR_ASSIGNMENTS'); } catch (e) { console.warn('EVALUATOR_ASSIGNMENTS unavailable: ' + e.message); }
-    try { teachers = SheetsRepository.all('TEACHERS'); } catch (e) { console.warn('TEACHERS unavailable: ' + e.message); }
-    if (teachers.length === 0 && users.length > 0) {
-      teachers = users.map(function (u) {
-        return {
-          teacher_id: u.user_id,
-          teacher_code: u.user_code || ('DOC-' + String(u.user_id).slice(0, 6).toUpperCase()),
-          institution_id: u.institution_id,
-          identity_reference: u.identity_reference || '',
-          full_name: u.display_name,
-          email: u.email || '',
-          position: u.position || 'Docente',
-          role: u.role,
-          active: u.active,
-          user_id: u.user_id
-        };
-      });
-    }
-    try { auditRows = SheetsRepository.recent ? SheetsRepository.recent('AUDIT_LOG', 200).reverse() : SheetsRepository.all('AUDIT_LOG').slice(-200).reverse(); } catch (e) { console.warn('AUDIT_LOG unavailable: ' + e.message); }
+    teachers = users.map(function (u) {
+      return {
+        teacher_id: u.user_id,
+        teacher_code: u.user_code || ('DOC-' + String(u.user_id).slice(0, 6).toUpperCase()),
+        institution_id: u.institution_id,
+        identity_reference: u.identity_reference || '',
+        full_name: u.display_name,
+        email: u.email || '',
+        position: u.position || 'Docente',
+        role: u.role,
+        active: u.active,
+        user_id: u.user_id
+      };
+    });
     return {
       users: users || [],
       teachers: teachers || [],
       institutions: institutions || [],
       assignments: assignments || [],
-      audit: auditRows || []
+      audit: []
     };
   }
   function getAudit(limit) {

@@ -6,25 +6,42 @@ const path=require('node:path');
 
 const source=fs.readFileSync(path.resolve(__dirname,'../../src/ui/App.html'),'utf8');
 
-test('incluye el módulo de asignación de docentes a evaluadores',()=>{
+test('incluye el módulo de asignación de docentes a evaluadores con edición y filtrado de docentes asignados',()=>{
   assert.match(source,/Asignación de docentes a evaluadores/);
   assert.match(source,/id="as-evaluator"/);
   assert.match(source,/id="as-teacher"/);
   assert.match(source,/Api\.call\('apiSaveAssignment'/);
   assert.match(source,/toggle-assignment/);
+  assert.match(source,/edit-assignment/);
+  assert.match(source,/id="as-cancel-edit"/);
 });
 
-test('permite habilitar una cuenta evaluadora desde la ficha docente',()=>{
-  assert.match(source,/Habilitar como evaluador/);
-  assert.match(source,/Api\.call\('apiEnableTeacherEvaluator'/);
-  assert.match(source,/Sin cuenta vinculada/);
-  assert.match(source,/Ingrese el correo institucional/);
+test('unifica el personal institucional y usuarios en una sola sección y maneja fecha planificada',()=>{
+  assert.match(source,/Personal institucional y usuarios/);
+  assert.match(source,/id="u-save"/);
+  assert.match(source,/name="u-roles"/);
+  assert.match(source,/class="light edit-user"/);
+  assert.match(source,/id="as-planned-date"/);
+  assert.doesNotMatch(source,/id="as-from"/);
+  assert.doesNotMatch(source,/id="as-to"/);
+  assert.doesNotMatch(source,/Log de auditor/);
 });
 
 test('incluye campo para configurar el logo institucional desde enlace de Drive',()=>{
   assert.match(source,/Logo de la institución \(enlace de Google Drive\)/);
   assert.match(source,/id="i-logo"/);
   assert.match(source,/logoDriveUrl:\s*\$\('#i-logo'\)\?\.value/);
+});
+
+test('organiza la administración en pestañas (asignaciones, usuarios, institución) y soporta refresco silencioso y caché en memoria',()=>{
+  assert.match(source,/adminTab:'assignments'/);
+  assert.match(source,/adminData:null/);
+  assert.match(source,/data-adm-tab="assignments"/);
+  assert.match(source,/data-adm-tab="users"/);
+  assert.match(source,/data-adm-tab="institution"/);
+  assert.match(source,/renderAdmin\(silent\s*=\s*false/);
+  assert.match(source,/State\.adminData&&!forceFetch/);
+  assert.match(source,/renderAdmin\(true/);
 });
 
 test('el encabezado del dashboard incluye contenedor de institución y estilo saas',()=>{

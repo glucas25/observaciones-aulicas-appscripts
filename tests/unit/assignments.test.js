@@ -12,8 +12,8 @@ const teachers=[
   {teacher_id:'teacher-2',email:'otro@example.com',institution_id:'inst-1',active:true}
 ];
 const assignments=[
-  {evaluator_user_id:'ev-1',teacher_id:'teacher-1',effective_from:'2020-01-01',effective_to:'2099-12-31',active:true},
-  {evaluator_user_id:'ev-1',teacher_id:'teacher-2',effective_from:'2020-01-01',effective_to:'2099-12-31',active:false}
+  {evaluator_user_id:'ev-1',teacher_id:'teacher-1',planned_date:'2026-10-15',active:true},
+  {evaluator_user_id:'ev-1',teacher_id:'teacher-2',planned_date:'2026-10-15',active:false}
 ];
 const tables={TEACHERS:teachers,EVALUATOR_ASSIGNMENTS:assignments,INSTITUTIONS:[],GENERAL_CRITERIA:[],RUBRIC_CRITERIA:[],EVIDENCE_CHECK_TYPES:[]};
 const context={
@@ -31,10 +31,9 @@ for(const rel of ['src/domain/Errors.gs','src/infrastructure/Auth.gs','src/appli
   vm.runInContext(fs.readFileSync(path.join(root,rel),'utf8'),context,{filename:rel});
 }
 
-test('autoriza solo asignaciones activas y vigentes',()=>{
-  assert.equal(context.Auth.hasActiveAssignment(evaluator,teachers[0],'2026-09-30'),true);
-  assert.equal(context.Auth.hasActiveAssignment(evaluator,teachers[1],'2026-09-30'),false);
-  assert.equal(context.Auth.hasActiveAssignment(evaluator,teachers[0],'2100-01-01'),false);
+test('autoriza solo asignaciones activas',()=>{
+  assert.equal(context.Auth.hasActiveAssignment(evaluator,teachers[0],'2026-10-15'),true);
+  assert.equal(context.Auth.hasActiveAssignment(evaluator,teachers[1],'2026-10-15'),false);
 });
 
 test('el catálogo del evaluador contiene solo sus docentes asignados',()=>{
