@@ -30,14 +30,16 @@ Diseñado con estándares de **Clean Architecture**, control de concurrencia opt
   - Reapertura auditada y anulación controlada exclusivas para rol Administrador.
 - **👥 Roles y Seguridad en Servidor (RBAC)**:
   - Perfiles: `ADMIN`, `DIRECTIVE`, `EVALUATOR` y `TEACHER`.
-  - Flujo colaborativo: El docente observado puede ingresar con su cuenta Google para redactar y firmar su compromiso en el Anexo 5 antes del cierre.
+  - **Planificación e inicio ágil para evaluadores**: Visualización de observaciones asignadas pendientes directamente en el listado con inicio rápido de borrador (`➕ Iniciar borrador`).
+  - **Transparencia y resguardo para docentes observados**: El docente puede visualizar la fila de su evaluación desde el estado `BORRADOR` con indicativo bloqueado *"En preparación"*, manteniendo la confidencialidad de los detalles hasta que el evaluador la abra a revisión colaborativa (`EN_REVISION`).
+  - **Flujo colaborativo**: El docente observado puede ingresar con su cuenta Google para verificar la rúbrica y redactar su compromiso pedagógico en el Anexo 5 antes del cierre definitivo.
 - **🤖 Asistente Pedagógico con IA (Google Gemini 3.8 Flash)**:
   - Integración nativa con **Google Gemini API** (`gemini-3.8-flash`, compatible con alias `3.8`) mediante salida estructurada JSON estricta (`responseMimeType: application/json`). Soporte secundario para OpenAI (`gpt-4o-mini`).
   - **Voz del evaluador in situ**: Redacción concisa, directa y orientada a la retroalimentación formativa. Cuando todos los criterios están logrados, emite felicitaciones explícitas en Observaciones Finales y consolida buenas prácticas sin recurrir a meta-comentarios de falta de datos.
   - **Autoría docente exclusiva**: El *Compromiso del docente* en el Anexo 5 nunca es generado por la IA; se reserva para la redacción y firma del propio docente observado.
   - **Herramienta 100% opcional (Human-in-the-loop)**: Exige haber completado el Anexo 1 (registro narrativo) y los 15 criterios de la rúbrica; el evaluador siempre revisa y aprueba el borrador.
 - **🧪 Calidad e Integración Continua**:
-  - Suite de **43 pruebas unitarias nativas** con `node:test` simulando todos los servicios de Google Workspace (Sheets, Docs, Drive, Cache, Lock, UrlFetch).
+  - Suite de **47 pruebas unitarias nativas** con `node:test` simulando todos los servicios de Google Workspace (Sheets, Docs, Drive, Cache, Lock, UrlFetch).
   - Pipeline de GitHub Actions (CI) con validación sintáctica V8 y verificación de catálogos.
 
 ---
@@ -154,7 +156,7 @@ Abre `institution.config.json` y personaliza los datos de tu institución:
 ### Paso 3: Probar y subir el código a Google Apps Script
 Valida la integridad del proyecto y sube el código:
 ```bash
-# 1. Ejecutar las 43 pruebas unitarias locales
+# 1. Ejecutar las 47 pruebas unitarias locales
 npm test
 
 # 2. Validar esquema, UI y catálogos pedagógicos

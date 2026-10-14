@@ -61,7 +61,7 @@ Puedes colaborar de diferentes maneras, no solo programando:
 5. **Verifica las pruebas unitarias y la integridad del proyecto**:
    Antes de enviar cualquier cambio, ejecuta obligatoriamente:
    ```bash
-   # Ejecuta las 43 pruebas unitarias locales
+   # Ejecuta las 47 pruebas unitarias locales
    npm test
 
    # Valida el esquema, catálogos pedagógicos y UI

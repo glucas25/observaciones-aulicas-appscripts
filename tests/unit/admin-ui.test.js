@@ -94,3 +94,11 @@ test('AdminService.saveInstitution procesa enlace de Drive y almacena logo_drive
   assert.equal(writes[0].row.logo_drive_id, '1XyZ9876543210_NEW-LOGO');
   assert.equal(cacheRemovedKey, 'LOGO_old-logo-id');
 });
+
+test('renderList integra asignaciones pendientes con boton de inicio rapido y bloqueo visual para docentes en borrador',()=>{
+  assert.match(source,/start-assignment/);
+  assert.match(source,/Iniciar borrador/);
+  assert.match(source,/Pendiente de visita/);
+  assert.match(source,/🔒 En preparación/);
+  assert.match(source,/preselectedAssignmentId/);
+});

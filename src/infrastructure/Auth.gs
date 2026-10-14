@@ -63,6 +63,14 @@ var Auth = (function () {
   function isVisibleToTeacher_(visit) {
     return ['IN_REVIEW', 'FINALIZED', 'DOCUMENTS_GENERATED', 'REOPENED'].indexOf(String(visit.status)) >= 0;
   }
+  function canListVisit(user, visit) {
+    var userRoles = userRoles_(user);
+    if (userRoles.indexOf('ADMIN') >= 0 || userRoles.indexOf('VIEWER') >= 0) return true;
+    if (user.role === 'DIRECTIVE') return String(visit.institution_id) === String(user.institution_id);
+    if (String(visit.evaluator_user_id) === String(user.user_id)) return true;
+    if (visit.co_evaluator_user_id && String(visit.co_evaluator_user_id) === String(user.user_id)) return true;
+    return isReceivedVisit_(user, visit);
+  }
   function canViewVisit(user, visit) {
     var userRoles = userRoles_(user);
     if (userRoles.indexOf('ADMIN') >= 0 || userRoles.indexOf('VIEWER') >= 0) return true;
@@ -86,7 +94,14 @@ var Auth = (function () {
     return ['DIRECTIVE','EVALUATOR'].some(function (r) { return userRoles.indexOf(r) >= 0; }) && (isLead || isCo);
   }
   function assertVisit(user, visit, edit) {
-    if (!(edit ? canEditVisit(user, visit) : canViewVisit(user, visit))) throw AppErrors.forbidden();
+    if (edit) {
+      if (!canEditVisit(user, visit)) throw AppErrors.forbidden();
+    } else {
+      if (isReceivedVisit_(user, visit) && !isVisibleToTeacher_(visit)) {
+        throw AppErrors.forbidden('La evaluación se encuentra en fase de preparación por el evaluador y aún no está disponible para revisión.');
+      }
+      if (!canViewVisit(user, visit)) throw AppErrors.forbidden();
+    }
   }
   function hasActiveAssignment(user, teacher, visitDate) {
     var userRoles = userRoles_(user);
@@ -110,6 +125,7 @@ var Auth = (function () {
     hasRole: hasRole,
     teacherForUser: teacherForUser,
     isObservedTeacher: isObservedTeacher,
+    canListVisit: canListVisit,
     canViewVisit: canViewVisit,
     canAccessVisit: canAccessVisit,
     canEditVisit: canEditVisit,

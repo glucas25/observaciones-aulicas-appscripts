@@ -37,6 +37,7 @@ var CatalogService = (function () {
     var userRoles = String(user.role || '').split(',').map(function (r) { return r.trim().toUpperCase(); });
     var isAdmin = userRoles.indexOf('ADMIN') >= 0;
 
+    var allTeachers = [].concat(teachers);
     if (!isAdmin) {
       var assigned = {};
       try {
@@ -76,7 +77,7 @@ var CatalogService = (function () {
       var allAssignments = active_('EVALUATOR_ASSIGNMENTS');
       var userMap = {};
       users.forEach(function (u) { userMap[u.user_id] = u; });
-      teachers.forEach(function (t) { userMap[t.teacher_id] = t; });
+      allTeachers.forEach(function (t) { userMap[t.teacher_id] = t; });
       assignments = allAssignments.map(function (a) {
         var ev = userMap[a.evaluator_user_id] || {};
         var co = a.co_evaluator_user_id ? (userMap[a.co_evaluator_user_id] || {}) : null;

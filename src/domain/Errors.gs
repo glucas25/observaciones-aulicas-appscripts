@@ -13,7 +13,7 @@ var AppErrors = (function () {
   return {
     AppError: AppError,
     auth: function () { return make('AUTH_REQUIRED', 'No fue posible identificar su cuenta de Google.'); },
-    forbidden: function () { return make('FORBIDDEN', 'No tiene permiso para realizar esta acción.'); },
+    forbidden: function (message) { return make('FORBIDDEN', message || 'No tiene permiso para realizar esta acción.'); },
     validation: function (message, details) { return make('VALIDATION_ERROR', message, details); },
     conflict: function () { return make('VERSION_CONFLICT', 'La evaluación cambió en otra pestaña. Recargue antes de guardar.'); },
     notFound: function (entity) { return make('NOT_FOUND', (entity || 'El registro') + ' no existe.'); },

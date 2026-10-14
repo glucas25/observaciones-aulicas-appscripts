@@ -194,7 +194,7 @@ var VisitService = (function () {
   function list(filters) {
     var actor = Auth.current(), f = filters || {};
     return SheetsRepository.filter('VISITS', function (v) {
-      if (!Auth.canViewVisit(actor, v)) return false;
+      if (!Auth.canListVisit(actor, v)) return false;
       if (f.status && v.status !== f.status) return false;
       if (f.teacherId && String(v.teacher_id) !== String(f.teacherId)) return false;
       if (f.from && String(v.visit_date) < f.from) return false;
