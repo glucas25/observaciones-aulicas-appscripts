@@ -1,6 +1,6 @@
 # 🏫 Sistema de Observaciones Áulicas (Google Workspace Enterprise)
 
-[![CI](https://github.com/glucas25/observaciones-aulicas-clasp/actions/workflows/ci.yml/badge.svg)](https://github.com/glucas25/observaciones-aulicas-clasp/actions/workflows/ci.yml)
+[![CI](https://github.com/glucas25/observaciones-aulicas-appscripts/actions/workflows/ci.yml/badge.svg)](https://github.com/glucas25/observaciones-aulicas-appscripts/actions/workflows/ci.yml)
 ![Google Apps Script](https://img.shields.io/badge/Google%20Apps%20Script-V8%20Runtime-4285F4?logo=google&logoColor=white)
 ![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2F%20DDD-0ea5e9)
 ![Node.js](https://img.shields.io/badge/Node.js-v20%2B-339933?logo=node.js&logoColor=white)
@@ -99,8 +99,8 @@ Sigue estos 5 pasos para desplegar el sistema en cualquier institución educativ
 
 ### Paso 1: Clonar el repositorio y vincular con Apps Script
 ```bash
-git clone https://github.com/glucas25/observaciones-aulicas-clasp.git
-cd observaciones-aulicas-clasp
+git clone https://github.com/glucas25/observaciones-aulicas-appscripts.git
+cd observaciones-aulicas-appscripts
 ```
 
 Crea un nuevo proyecto en Google Apps Script:
