@@ -250,18 +250,25 @@ npm run validate
 
 ## 📚 Documentación Técnica Detallada
 
-El repositorio incluye la especificación completa y guías de gobierno:
+La documentación arquitectónica, especificaciones y guías de gobierno se encuentran organizadas en la carpeta [`docs/`](./docs/):
 
-1. [01-PLAN-MAESTRO.md](./01-PLAN-MAESTRO.md): Visión estratégica, riesgos y gobierno de datos.
-2. [02-ESPECIFICACION-FUNCIONAL.md](./02-ESPECIFICACION-FUNCIONAL.md): Matriz de permisos, ciclo de vida y criterios de aceptación.
-3. [03-ARQUITECTURA-TECNICA.md](./03-ARQUITECTURA-TECNICA.md): Patrones de diseño, seguridad y estrategia de migrabilidad a PostgreSQL/FastAPI.
-4. [04-MODELO-DATOS.md](./04-MODELO-DATOS.md): Diccionario de datos de las 19 hojas, índices y tipos.
-5. [05-ROADMAP-BACKLOG-QA.md](./05-ROADMAP-BACKLOG-QA.md): Plan de aseguramiento de calidad (QA) y UAT.
-6. [06-CATALOGO-RUBRICA.md](./06-CATALOGO-RUBRICA.md): Matriz oficial de los 15 criterios y 45 descriptores pedagógicos.
-7. [Guía de Producción](./docs/GUIA-IMPLEMENTACION-PRODUCCION.md): Manual paso a paso para administradores de sistemas.
+1. **[01-PLAN-MAESTRO.md](./docs/especificaciones/01-PLAN-MAESTRO.md)**: Visión estratégica, riesgos y gobierno de datos.
+2. **[02-ESPECIFICACION-FUNCIONAL.md](./docs/especificaciones/02-ESPECIFICACION-FUNCIONAL.md)**: Matriz de permisos (RBAC), ciclo de vida y criterios de aceptación.
+3. **[03-ARQUITECTURA-TECNICA.md](./docs/especificaciones/03-ARQUITECTURA-TECNICA.md)**: Patrones de diseño, Clean Architecture, seguridad y estrategia de migración.
+4. **[04-MODELO-DATOS.md](./docs/especificaciones/04-MODELO-DATOS.md)**: Diccionario de datos de las 19 hojas, índices y tipos.
+5. **[05-ROADMAP-BACKLOG-QA.md](./docs/especificaciones/05-ROADMAP-BACKLOG-QA.md)**: Plan de aseguramiento de calidad (QA) y UAT.
+6. **[06-CATALOGO-RUBRICA.md](./docs/especificaciones/06-CATALOGO-RUBRICA.md)**: Matriz oficial de los 15 criterios y 45 descriptores pedagógicos.
+7. **[Guía de Producción](./docs/GUIA-IMPLEMENTACION-PRODUCCION.md)**: Manual paso a paso para administradores de sistemas.
+8. **[Documentos de Referencia](./docs/recursos/Anexos.docx)**: Formatos ministeriales de los Anexos 1, 2, 3 y 5.
+
+---
+
+## 🤝 Contribuciones
+
+Las contribuciones de la comunidad educativa y técnica son bienvenidas. Si deseas colaborar reportando incidencias, proponiendo adaptaciones curriculares o aportando código, consulta nuestra **[Guía de Contribución (CONTRIBUTING.md)](./CONTRIBUTING.md)** para conocer el flujo de trabajo, estándares de código y políticas de privacidad.
 
 ---
 
 ## 📄 Licencia
 
-Este proyecto está disponible bajo la licencia [MIT](./LICENSE).
+Este proyecto es software libre y está disponible bajo la licencia **[MIT](./LICENSE)**.
