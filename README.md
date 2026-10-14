@@ -226,14 +226,6 @@ function iniciar() {
 
 ---
 
-### 🔄 Para proyectos ya desplegados (Mantenimiento)
-Si ya tienes una institución en producción y solo estás descargando actualizaciones de código:
-1. **NO ejecutes `setupFromConfig()` nuevamente.** Tus datos ya están en Google Sheets.
-2. Simplemente haz `clasp push`.
-3. En el editor, ve a **Implementar** ➔ **Administrar implementaciones** y actualiza a una **Nueva versión**.
-
----
-
 ## 🛠️ Pruebas Unitarias y Validación
 
 El proyecto cuenta con un entorno de pruebas unitarias que no requiere conexión en vivo a Google, permitiendo desarrollo ágil en local:
