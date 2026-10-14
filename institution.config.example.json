@@ -1,0 +1,27 @@
+{
+  "institution": {
+    "institutionCode": "INS-001",
+    "name": "Unidad Educativa Modelo",
+    "location": "Ciudad Ejemplo",
+    "zone": "Zona 1",
+    "district": "Distrito 01D01",
+    "circuit": "Circuito C01",
+    "address": "Av. Principal y Calle Secundaria",
+    "defaultShift": "Matutina",
+    "logoDriveUrl": ""
+  },
+  "initialAdmin": {
+    "email": "administrador@institucion.edu.ec",
+    "displayName": "Rector / Autoridad Institucional",
+    "position": "Rector / Rectora"
+  },
+  "properties": {
+    "APP_ENV": "PROD",
+    "TIMEZONE": "America/Guayaquil",
+    "SUPPORT_EMAIL": "soporte@institucion.edu.ec",
+    "RETENTION_DAYS": "365",
+    "AI_ENABLED": "false",
+    "AI_PROVIDER": "GEMINI",
+    "AI_MODEL": "gemini-3.8-flash"
+  }
+}

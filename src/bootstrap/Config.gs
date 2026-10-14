@@ -22,12 +22,12 @@ var AppConfig = (function () {
         FULL_PACKAGE: p.FULL_PACKAGE_TEMPLATE_ID || ''
       },
       templateVersion: p.TEMPLATE_VERSION || '2.0.0',
-      aiEnabled: String(p.AI_ENABLED).toLowerCase() === 'true',
-      aiProvider: p.AI_PROVIDER || 'OPENAI',
-      aiModel: p.AI_MODEL || '',
+      aiEnabled: String(p.AI_ENABLED || p.AI_ENABLE).toLowerCase() === 'true',
+      aiProvider: (p.AI_PROVIDER || 'GEMINI').toUpperCase(),
+      aiModel: p.AI_MODEL || ((p.AI_PROVIDER || '').toUpperCase() === 'OPENAI' ? 'gpt-4o-mini' : 'gemini-3.8-flash'),
       aiPromptVersion: p.AI_PROMPT_VERSION || '1.0.0',
       aiApiKey: p.AI_API_KEY || '',
-      aiEndpoint: p.AI_ENDPOINT || 'https://api.openai.com/v1/responses',
+      aiEndpoint: p.AI_ENDPOINT || '',
       timezone: p.TIMEZONE || 'America/Guayaquil',
       retentionDays: Number(p.RETENTION_DAYS || 365),
       supportEmail: p.SUPPORT_EMAIL || ''

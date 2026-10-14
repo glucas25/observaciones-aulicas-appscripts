@@ -73,8 +73,8 @@ test('identifica correctamente al docente observado',()=>{
 });
 
 test('identifica al docente observado incluso con cargos en parentesis o nombres ordenados',()=>{
-  const userWithPosition = {user_id:'usr-99',display_name:'LUCAS AVILA GABRIEL EDUARDO (Docente)',email:'lucas@example.com',role:'TEACHER'};
-  const visitWithSnapshot = {teacher_id:'other-id',teacher_name_snapshot:'Gabriel Eduardo Lucas Avila',status:'IN_REVIEW'};
+  const userWithPosition = {user_id:'usr-99',display_name:'PEREZ ALVAREZ JUAN CARLOS (Docente)',email:'docente@example.com',role:'TEACHER'};
+  const visitWithSnapshot = {teacher_id:'other-id',teacher_name_snapshot:'Juan Carlos Perez Alvarez',status:'IN_REVIEW'};
   assert.equal(context.Auth.isObservedTeacher(userWithPosition, visitWithSnapshot), true);
 });
 

@@ -5,3 +5,6 @@ coverage/
 dist/
 *.log
 scratch/
+institution.config.json
+config.json
+*.local.json

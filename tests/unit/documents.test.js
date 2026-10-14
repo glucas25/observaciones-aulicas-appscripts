@@ -198,7 +198,7 @@ test('DocsGateway.appendInstitutionalHeader renderiza tabla con logo y texto ins
   const textContent = [];
   const bodyWithLogo = createMockBody();
   const snapshot = {
-    institutionNameSnapshot: 'Unidad Educativa Juan León Mera',
+    institutionNameSnapshot: 'Unidad Educativa Modelo',
     district: '09D01',
     circuit: '09D01C01',
     zone: 'Zona 8'
@@ -216,7 +216,7 @@ test('DocsGateway.appendInstitutionalHeader renderiza tabla con logo y texto ins
   assert.equal(row.getCells().length, 2);
   assert.equal(row.getCells()[0].getWidth(), 105);
   assert.equal(row.getCells()[1].getWidth(), 435);
-  assert.ok(textContent.includes('UNIDAD EDUCATIVA JUAN LEÓN MERA'));
+  assert.ok(textContent.includes('UNIDAD EDUCATIVA MODELO'));
 
   // Sin logo: tabla de 1 sola columna de 540pt
   const bodyWithoutLogo = createMockBody();
