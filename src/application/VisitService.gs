@@ -78,10 +78,20 @@ var VisitService = (function () {
     return row;
   }
   function aggregate_(row) {
+    var cache = null;
+    var cacheKey = 'VISIT_AGG_' + String(row.visit_id) + '_' + String(row.data_version || '') + '_' + String(row.row_version || '');
+    try {
+      if (typeof CacheService !== 'undefined') {
+        cache = CacheService.getScriptCache();
+        var cached = cache.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+      }
+    } catch (cacheReadError) {}
     var dto = toCamel_(row);
     dto.generalResponses = SheetsRepository.filter('VISIT_GENERAL_RESPONSES', function (r) { return String(r.visit_id) === String(row.visit_id); }).map(toCamel_);
     dto.rubricResponses = SheetsRepository.filter('VISIT_RUBRIC_RESPONSES', function (r) { return String(r.visit_id) === String(row.visit_id); }).map(toCamel_);
     dto.evidenceChecks = SheetsRepository.filter('VISIT_EVIDENCE_CHECKS', function (r) { return String(r.visit_id) === String(row.visit_id); }).map(toCamel_);
+    try { if (cache) cache.put(cacheKey, JSON.stringify(dto), 600); } catch (cacheWriteError) {}
     return dto;
   }
   function create(dto, requestId) {

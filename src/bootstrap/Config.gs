@@ -21,7 +21,7 @@ var AppConfig = (function () {
         ANNEX_5: p.ANNEX5_TEMPLATE_ID || '',
         FULL_PACKAGE: p.FULL_PACKAGE_TEMPLATE_ID || ''
       },
-      templateVersion: p.TEMPLATE_VERSION || '2.1.0',
+      templateVersion: (p.TEMPLATE_VERSION || '2.1.0') + '-layout-4.1.0',
       aiEnabled: String(p.AI_ENABLED || p.AI_ENABLE).toLowerCase() === 'true',
       aiProvider: (p.AI_PROVIDER || 'GEMINI').toUpperCase(),
       aiModel: p.AI_MODEL || ((p.AI_PROVIDER || '').toUpperCase() === 'OPENAI' ? 'gpt-4o-mini' : 'gemini-3.8-flash'),

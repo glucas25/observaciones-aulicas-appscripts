@@ -198,7 +198,7 @@ function appendAnnex2_(body) {
   var tableInst = body.appendTable([
     [
       'NOMBRE DE LA INSTITUCIÓN:\n{{INSTITUTION_NAME}}',
-      'UBICACIÓN:\n{{LOCATION}}',
+      'CANTÓN:\n{{LOCATION}}',
       'ZONA:\n{{ZONE}}',
       'DISTRITO:\n{{DISTRICT}}',
       'CIRCUITO:\n{{CIRCUIT}}',

@@ -21,7 +21,12 @@ var SheetSchema = (function () {
       'created_at',
       'updated_at',
       'logo_drive_id',
-      'logo_drive_url'
+      'logo_drive_url',
+      'phone',
+      'email',
+      'province',
+      'ministry_logo_drive_id',
+      'ministry_logo_drive_url'
     ],
     USERS: ['user_id',
       'email',

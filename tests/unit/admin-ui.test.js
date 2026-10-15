@@ -31,6 +31,9 @@ test('incluye campo para configurar el logo institucional desde enlace de Drive'
   assert.match(source,/Logo de la institución \(enlace de Google Drive\)/);
   assert.match(source,/id="i-logo"/);
   assert.match(source,/logoDriveUrl:\s*\$\('#i-logo'\)\?\.value/);
+  assert.match(source,/id="i-logo-file"/);
+  assert.match(source,/apiUploadInstitutionLogo/);
+  assert.match(source,/image\/png,image\/jpeg/);
 });
 
 test('organiza la administración en pestañas (asignaciones, usuarios, institución) y soporta refresco silencioso y caché en memoria',()=>{
@@ -42,6 +45,14 @@ test('organiza la administración en pestañas (asignaciones, usuarios, instituc
   assert.match(source,/renderAdmin\(silent\s*=\s*false/);
   assert.match(source,/State\.adminData&&!forceFetch/);
   assert.match(source,/renderAdmin\(true/);
+});
+
+test('muestra un aviso persistente durante procesos que tardan',()=>{
+  assert.match(source,/function processNotice/);
+  assert.match(source,/setTimeout\(\(\)=>\{closeProcess=processNotice\(waitMessage\);\},450\)/);
+  assert.match(source,/Cargando y validando el logo institucional/);
+  assert.match(source,/Regenerando el expediente PDF/);
+  assert.match(source,/Generando el expediente PDF/);
 });
 
 test('el encabezado del dashboard incluye contenedor de institución y estilo saas',()=>{
@@ -93,6 +104,35 @@ test('AdminService.saveInstitution procesa enlace de Drive y almacena logo_drive
   assert.equal(writes.length, 1);
   assert.equal(writes[0].row.logo_drive_id, '1XyZ9876543210_NEW-LOGO');
   assert.equal(cacheRemovedKey, 'LOGO_old-logo-id');
+});
+
+test('AdminService.uploadInstitutionLogo guarda una imagen validada en la carpeta administrada',()=>{
+  const vm=require('node:vm');
+  const writes=[];
+  const created=[];
+  const imageBytes=Buffer.alloc(6000,7);
+  const file={getId:()=> 'managed-logo-1',getUrl:()=> 'https://drive.google.com/file/d/managed-logo-1/view'};
+  const folder={createFile:(blob)=>{created.push(blob);return file;}};
+  const context={
+    console,
+    Auth:{requireRoles:()=>({user_id:'admin-1'})},
+    AppErrors:{validation:(m)=>Object.assign(new Error(m),{code:'VALIDATION_ERROR'}),notFound:(m)=>new Error(m)},
+    Validation:{required:(v)=>v},
+    JsonUtil:{now:()=> '2026-10-15T00:00:00Z'},
+    Utilities:{base64Decode:(s)=>Buffer.from(s,'base64'),newBlob:(bytes,mime,name)=>({bytes,mime,name})},
+    AppConfig:{validate:()=>({outputFolderId:'output-folder'})},
+    DriveApp:{getFolderById:()=>({getFoldersByName:()=>({hasNext:()=>true,next:()=>folder}),createFolder:()=>folder})},
+    SheetsRepository:{find:()=>({institution_id:'inst-1',name:'Colegio'}),upsert:(t,k,row)=>writes.push(row)},
+    DocsGateway:{clearLogoCache:()=>{}},
+    Audit:{write:()=>{}}
+  };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../../src/application/AdminService.gs'),'utf8'),context);
+  const result=context.AdminService.uploadInstitutionLogo({institutionId:'inst-1',fileName:'logo.png',mimeType:'image/png',base64:imageBytes.toString('base64')},'req-logo');
+  assert.equal(created.length,1);
+  assert.equal(created[0].bytes.length,6000);
+  assert.equal(writes[0].logo_drive_id,'managed-logo-1');
+  assert.equal(result.logo.url,'https://drive.google.com/file/d/managed-logo-1/view');
 });
 
 test('renderList integra asignaciones pendientes con boton de inicio rapido y bloqueo visual para docentes en borrador',()=>{

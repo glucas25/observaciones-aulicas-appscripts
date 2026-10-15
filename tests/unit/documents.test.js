@@ -110,6 +110,24 @@ test('DocsGateway.parseDriveFileId extrae el ID de diversos formatos de enlace d
   assert.equal(parse(null),'');
 });
 
+test('DocsGateway prioriza el logo vigente de la instituciÃ³n de la visita',()=>{
+  context.SheetsRepository={all:()=>[
+    {institution_id:'inst-otra',logo_drive_id:'logo-otra'},
+    {institution_id:'inst-1',logo_drive_id:'logo-vigente'}
+  ]};
+  assert.equal(context.DocsGateway.resolveInstitutionLogoId({institutionId:'inst-1',institutionLogoDriveId:'logo-antiguo'}),'logo-vigente');
+  delete context.SheetsRepository;
+});
+
+test('el expediente distribuye la rÃºbrica en dos pÃ¡ginas y firma solo el Anexo 5',()=>{
+  const source=fs.readFileSync(path.resolve(__dirname,'../../src/gateways/DocsGateway.gs'),'utf8');
+  assert.match(source,/\[1, 2, 3, 4, 5, 6, 7\]/);
+  assert.match(source,/\[8, 9, 10, 11, 12, 13, 14, 15\]/);
+  assert.doesNotMatch(source,/rubTableFinal|appendDedicatedSignaturesPage_/);
+  assert.equal((source.match(/buildSignaturesTable_\(sigTable, snapshot\);/g)||[]).length,1);
+  assert.match(source,/replaceCellParagraphs_\(cell, lines, fontSize/);
+});
+
 test('DocsGateway.getLogoBlob utiliza caché en memoria y CacheService para evitar múltiples llamadas a Drive',()=>{
   let driveFetchCount = 0;
   const mockCacheStore = {};
@@ -261,9 +279,10 @@ test('DocsGateway.appendInstitutionalHeader renderiza tabla con logo y texto ins
   context.DocsGateway.appendInstitutionalHeader(bodyWithLogo, snapshot, { fakeBlob: true });
   const table = bodyWithLogo.getTable();
   const row = table.getRows()[0];
-  assert.equal(row.getCells().length, 2);
-  assert.equal(row.getCells()[0].getWidth(), 105);
-  assert.equal(row.getCells()[1].getWidth(), 435);
+  assert.equal(row.getCells().length, 3);
+  assert.equal(row.getCells()[0].getWidth(), 100);
+  assert.equal(row.getCells()[1].getWidth(), 340);
+  assert.equal(row.getCells()[2].getWidth(), 100);
   assert.ok(textContent.includes('UNIDAD EDUCATIVA MODELO'));
 
   // Sin logo: tabla de 1 sola columna de 540pt
@@ -275,14 +294,14 @@ test('DocsGateway.appendInstitutionalHeader renderiza tabla con logo y texto ins
   assert.equal(rowNoLogo.getCells()[0].getWidth(), 540);
 });
 
-test('DocsGateway.setupDocumentFooter configura el pie de página con la referencia del anexo y código',()=>{
-  let footerParagraphText = '';
+test('DocsGateway.setupDocumentFooter deja una sola referencia institucional',()=>{
+  const footerParagraphs = [];
   const mockDoc = {
     getFooter: () => null,
     addFooter: () => ({
       clear: () => {},
       appendParagraph: (txt) => {
-        footerParagraphText = txt;
+        footerParagraphs.push(txt);
         return {
           setFontFamily: () => ({ setFontSize: () => ({ setForegroundColor: () => ({ setAlignment: () => {} }) }) })
         };
@@ -290,27 +309,8 @@ test('DocsGateway.setupDocumentFooter configura el pie de página con la referen
     })
   };
 
-  context.DocumentApp.HorizontalAlignment.RIGHT = 2;
-
-  // Anexo 1
-  context.DocsGateway.setupDocumentFooter(mockDoc, { visitCode: 'VIS-2026-000001' }, 'ANNEX_1');
-  assert.equal(footerParagraphText, 'Anexo 1: Registro de la observación de clase · VIS-2026-000001');
-
-  // Anexo 2
-  context.DocsGateway.setupDocumentFooter(mockDoc, { visitCode: 'VIS-2026-000001' }, 'ANNEX_2');
-  assert.equal(footerParagraphText, 'Anexo 2: Ficha de observación de clase · VIS-2026-000001');
-
-  // Anexo 3
-  context.DocsGateway.setupDocumentFooter(mockDoc, { visitCode: 'VIS-2026-000001' }, 'ANNEX_3');
-  assert.equal(footerParagraphText, 'Anexo 3: Rúbrica para la ficha de observación de clase · VIS-2026-000001');
-
-  // Anexo 5
-  context.DocsGateway.setupDocumentFooter(mockDoc, { visitCode: 'VIS-2026-000001' }, 'ANNEX_5');
-  assert.equal(footerParagraphText, 'Anexo 5: Registro para la reflexión pedagógica · VIS-2026-000001');
-
-  // Full package
   context.DocsGateway.setupDocumentFooter(mockDoc, { visitCode: 'VIS-2026-000001' }, 'FULL_PACKAGE');
-  assert.equal(footerParagraphText, 'Expediente Oficial de Observación de Clase (Anexos 1, 2, 3 y 5) · VIS-2026-000001');
+  assert.deepEqual(footerParagraphs, ['SISTEMA DE GESTIÓN Y SEGUIMIENTO A LA PRÁCTICA PEDAGÓGICA']);
 });
 
 

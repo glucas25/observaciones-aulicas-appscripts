@@ -9,7 +9,12 @@ walk(path.join(root,'src'));
 for(const file of gs){new vm.Script(fs.readFileSync(file,'utf8'),{filename:file});}
 const manifest=JSON.parse(fs.readFileSync(path.join(root,'src','appsscript.json'),'utf8'));
 if(manifest.runtimeVersion!=='V8')throw new Error('El runtime debe ser V8.');
-for(const html of ['App.html','ApiClient.html'])new vm.Script(fs.readFileSync(path.join(root,'src','ui',html),'utf8'),{filename:html});
+for(const html of ['App.html','ApiClient.html']){
+  const source=fs.readFileSync(path.join(root,'src','ui',html),'utf8');
+  const match=source.match(/^\s*<script>([\s\S]*)<\/script>\s*$/i);
+  if(!match)throw new Error(`${html} debe contener una etiqueta script completa`);
+  new vm.Script(match[1],{filename:html});
+}
 const schemaSource=fs.readFileSync(path.join(root,'src','repositories','sheets','Schema.gs'),'utf8');
 const schemaContext={};vm.createContext(schemaContext);vm.runInContext(schemaSource,schemaContext);
 const names=schemaContext.SheetSchema.names();

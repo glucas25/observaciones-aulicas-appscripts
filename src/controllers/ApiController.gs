@@ -36,6 +36,7 @@ function apiGenerateAiDraft(payload){return ApiController.invoke(function(p,r){r
 function apiAcceptAiDraft(payload){return ApiController.invoke(function(p,r){return AiDraftService.accept(p.aiRequestId,p.humanEdited,r);},payload);}
 function apiAdminData(){return ApiController.invoke(function(){return AdminService.data();});}
 function apiSaveInstitution(payload){return ApiController.invoke(function(p,r){return AdminService.saveInstitution(p,r);},payload);}
+function apiUploadInstitutionLogo(payload){return ApiController.invoke(function(p,r){return AdminService.uploadInstitutionLogo(p,r);},payload);}
 function apiSaveUser(payload){return ApiController.invoke(function(p,r){return AdminService.saveUser(p,r);},payload);}
 function apiSaveTeacher(payload){return ApiController.invoke(function(p,r){return AdminService.saveTeacher(p,r);},payload);}
 function apiEnableTeacherEvaluator(payload){return ApiController.invoke(function(p,r){return AdminService.enableTeacherEvaluator(p,r);},payload);}

@@ -9,10 +9,45 @@ var AdminService = (function () {
     if (/^[a-zA-Z0-9_-]{20,}$/.test(str)) return str;
     return str;
   }
+  var MAX_LOGO_BYTES_ = 2 * 1024 * 1024;
+  var ALLOWED_LOGO_TYPES_ = ['image/png', 'image/jpeg'];
+  function ensureLogoSharing_(file) {
+    if (!file || !file.setSharing || typeof DriveApp === 'undefined') return;
+    try { file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW); }
+    catch (e) {
+      try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (ignored) {}
+    }
+  }
+  function validateLogoFile_(logoId) {
+    if (!logoId || typeof DriveApp === 'undefined') return null;
+    try {
+      var file = DriveApp.getFileById(logoId);
+      var blob = file.getBlob();
+      var mimeType = String(blob.getContentType ? blob.getContentType() : '').toLowerCase();
+      var bytes = blob.getBytes ? blob.getBytes() : [];
+      if (ALLOWED_LOGO_TYPES_.indexOf(mimeType) < 0) {
+        throw AppErrors.validation('El logo debe ser una imagen PNG o JPG.');
+      }
+      if (!bytes.length) throw AppErrors.validation('El archivo del logo est\u00e1 vac\u00edo.');
+      if (bytes.length > MAX_LOGO_BYTES_) throw AppErrors.validation('El logo no puede superar 2 MB.');
+      ensureLogoSharing_(file);
+      return { file: file, blob: blob, mimeType: mimeType, size: bytes.length };
+    } catch (e) {
+      if (e && e.code === 'VALIDATION_ERROR') throw e;
+      throw AppErrors.validation('No se pudo acceder al logo en Google Drive. Verifique el enlace y los permisos del archivo.');
+    }
+  }
   function saveInstitution(dto, requestId) {
+    if (typeof SheetSchema !== 'undefined' && SheetSchema.all && SheetSchema.all.INSTITUTIONS) {
+      SheetsRepository.ensureColumns('INSTITUTIONS', SheetSchema.all.INSTITUTIONS);
+    }
     var actor = Auth.requireRoles(['ADMIN']), now = JsonUtil.now(), current = dto.institutionId ? SheetsRepository.find('INSTITUTIONS', 'institution_id', dto.institutionId) : null;
     var rawLogo = dto.logoDriveUrl != null ? dto.logoDriveUrl : (dto.logoDriveId != null ? dto.logoDriveId : (current ? (current.logo_drive_url || current.logo_drive_id || '') : ''));
     var logoId = parseDriveFileId_(rawLogo);
+    if (logoId) validateLogoFile_(logoId);
+    var rawMinistryLogo = dto.ministryLogoDriveUrl != null ? dto.ministryLogoDriveUrl : (dto.ministryLogoDriveId != null ? dto.ministryLogoDriveId : (current ? (current.ministry_logo_drive_url || current.ministry_logo_drive_id || '') : ''));
+    var ministryLogoId = parseDriveFileId_(rawMinistryLogo);
+    if (ministryLogoId) validateLogoFile_(ministryLogoId);
     var row = {
       institution_id: dto.institutionId || (current && current.institution_id) || Utilities.getUuid(),
       institution_code: dto.institutionCode || (current && current.institution_code) || 'INS-001',
@@ -22,10 +57,15 @@ var AdminService = (function () {
       district: Validation.text(dto.district != null ? dto.district : (current && current.district), 50),
       circuit: Validation.text(dto.circuit != null ? dto.circuit : (current && current.circuit), 50),
       address: Validation.text(dto.address != null ? dto.address : (current && current.address), 500),
+      phone: Validation.text(dto.phone != null ? dto.phone : (current && current.phone), 50),
+      email: Validation.text(dto.email != null ? dto.email : (current && current.email), 250).toLowerCase(),
+      province: Validation.text(dto.province != null ? dto.province : (current && current.province), 100),
       default_shift: Validation.text(dto.defaultShift != null ? dto.defaultShift : (current && current.default_shift), 50),
       active: dto.active !== false,
       logo_drive_id: logoId,
       logo_drive_url: rawLogo,
+      ministry_logo_drive_id: ministryLogoId,
+      ministry_logo_drive_url: rawMinistryLogo,
       created_at: current ? current.created_at : now,
       updated_at: now
     };
@@ -39,8 +79,54 @@ var AdminService = (function () {
         }
       } catch (e) {}
     }
+    if (current && current.ministry_logo_drive_id && current.ministry_logo_drive_id !== ministryLogoId) {
+      try {
+        if (typeof DocsGateway !== 'undefined' && DocsGateway.clearLogoCache) DocsGateway.clearLogoCache(current.ministry_logo_drive_id);
+        else if (typeof CacheService !== 'undefined') CacheService.getScriptCache().remove('LOGO_' + current.ministry_logo_drive_id);
+      } catch (e2) {}
+    }
     Audit.write(actor, 'INSTITUTION_SAVED', 'INSTITUTION', row.institution_id, '', requestId, 'SUCCESS', 'Institución guardada');
     return row;
+  }
+  function uploadInstitutionLogo(dto, requestId) {
+    var actor = Auth.requireRoles(['ADMIN']);
+    if (typeof SheetSchema !== 'undefined' && SheetSchema.all && SheetSchema.all.INSTITUTIONS) {
+      SheetsRepository.ensureColumns('INSTITUTIONS', SheetSchema.all.INSTITUTIONS);
+    }
+    var logoKind = String(dto.logoKind || 'INSTITUTION').toUpperCase() === 'MINISTRY' ? 'MINISTRY' : 'INSTITUTION';
+    var institutionId = Validation.required(dto.institutionId, 'Instituci\u00f3n', 100);
+    var current = SheetsRepository.find('INSTITUTIONS', 'institution_id', institutionId);
+    if (!current) throw AppErrors.notFound('La instituci\u00f3n');
+    var mimeType = String(dto.mimeType || '').toLowerCase();
+    if (ALLOWED_LOGO_TYPES_.indexOf(mimeType) < 0) throw AppErrors.validation('El logo debe ser una imagen PNG o JPG.');
+    var base64 = String(dto.base64 || '').trim();
+    if (!base64) throw AppErrors.validation('Archivo del logo es obligatorio.');
+    if (base64.indexOf(',') >= 0) base64 = base64.split(',').pop();
+    var bytes;
+    try { bytes = Utilities.base64Decode(base64); }
+    catch (e) { throw AppErrors.validation('El archivo del logo no tiene un formato v\u00e1lido.'); }
+    if (!bytes.length) throw AppErrors.validation('El archivo del logo est\u00e1 vac\u00edo.');
+    if (bytes.length > MAX_LOGO_BYTES_) throw AppErrors.validation('El logo no puede superar 2 MB.');
+    var config = AppConfig.validate();
+    var parent = DriveApp.getFolderById(config.outputFolderId);
+    var folders = parent.getFoldersByName('institution-assets');
+    var folder = folders.hasNext() ? folders.next() : parent.createFolder('institution-assets');
+    var safeName = String(dto.fileName || 'logo').replace(/[^a-zA-Z0-9._-]+/g, '-');
+    var file = folder.createFile(Utilities.newBlob(bytes, mimeType, institutionId + '-' + logoKind.toLowerCase() + '-' + safeName));
+    ensureLogoSharing_(file);
+    var now = JsonUtil.now();
+    if (logoKind === 'MINISTRY') {
+      current.ministry_logo_drive_id = file.getId();
+      current.ministry_logo_drive_url = file.getUrl();
+    } else {
+      current.logo_drive_id = file.getId();
+      current.logo_drive_url = file.getUrl();
+    }
+    current.updated_at = now;
+    SheetsRepository.upsert('INSTITUTIONS', ['institution_id'], current);
+    if (typeof DocsGateway !== 'undefined' && DocsGateway.clearLogoCache) DocsGateway.clearLogoCache();
+    Audit.write(actor, 'INSTITUTION_LOGO_UPLOADED', 'INSTITUTION', institutionId, '', requestId, 'SUCCESS', logoKind === 'MINISTRY' ? 'Logo ministerial cargado' : 'Logo institucional cargado', {logoKind:logoKind,mimeType:mimeType,sizeBytes:bytes.length});
+    return { institution: current, logo: { kind: logoKind, driveFileId: file.getId(), url: file.getUrl(), mimeType: mimeType, fileName: safeName } };
   }
   function saveUser(dto, requestId) {
     var actor = Auth.requireRoles(['ADMIN']);
@@ -219,6 +305,9 @@ var AdminService = (function () {
   }
   function data() {
     Auth.requireRoles(['ADMIN']);
+    if (typeof SheetSchema !== 'undefined' && SheetSchema.all && SheetSchema.all.INSTITUTIONS) {
+      SheetsRepository.ensureColumns('INSTITUTIONS', SheetSchema.all.INSTITUTIONS);
+    }
     var users = [], teachers = [], institutions = [], assignments = [];
     try { users = SheetsRepository.all('USERS'); } catch (e) { console.warn('USERS unavailable: ' + e.message); }
     try { institutions = SheetsRepository.all('INSTITUTIONS'); } catch (e) { console.warn('INSTITUTIONS unavailable: ' + e.message); }
@@ -302,6 +391,7 @@ var AdminService = (function () {
   }
   return {
     saveInstitution: saveInstitution,
+    uploadInstitutionLogo: uploadInstitutionLogo,
     saveUser: saveUser,
     saveTeacher: saveTeacher,
     enableTeacherEvaluator: enableTeacherEvaluator,

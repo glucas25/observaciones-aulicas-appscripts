@@ -99,6 +99,13 @@ function setupFromConfig(configInput) {
     var match = trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/) || trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
     logoId = match ? match[1] : (/^[a-zA-Z0-9_-]{20,}$/.test(trimmed) ? trimmed : '');
   }
+  var rawMinistryLogo = instData.ministryLogoDriveUrl || instData.ministryLogoDriveId || '';
+  var ministryLogoId = '';
+  if (rawMinistryLogo && typeof rawMinistryLogo === 'string') {
+    var ministryTrimmed = rawMinistryLogo.trim();
+    var ministryMatch = ministryTrimmed.match(/\/d\/([a-zA-Z0-9_-]+)/) || ministryTrimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    ministryLogoId = ministryMatch ? ministryMatch[1] : (/^[a-zA-Z0-9_-]{20,}$/.test(ministryTrimmed) ? ministryTrimmed : '');
+  }
 
   var institutionRow = {
     institution_id: institutionId,
@@ -109,10 +116,15 @@ function setupFromConfig(configInput) {
     district: instData.district || (institutions[0] && institutions[0].district) || '',
     circuit: instData.circuit || (institutions[0] && institutions[0].circuit) || '',
     address: instData.address || (institutions[0] && institutions[0].address) || '',
+    phone: instData.phone || (institutions[0] && institutions[0].phone) || '',
+    email: instData.email || (institutions[0] && institutions[0].email) || '',
+    province: instData.province || (institutions[0] && institutions[0].province) || '',
     default_shift: instData.defaultShift || (institutions[0] && institutions[0].default_shift) || 'Matutina',
     active: instData.active !== false,
     logo_drive_id: logoId,
     logo_drive_url: rawLogo,
+    ministry_logo_drive_id: ministryLogoId,
+    ministry_logo_drive_url: rawMinistryLogo,
     created_at: (institutions[0] && institutions[0].created_at) || JsonUtil.now(),
     updated_at: JsonUtil.now()
   };

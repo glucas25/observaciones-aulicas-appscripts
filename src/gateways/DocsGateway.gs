@@ -133,6 +133,36 @@ var DocsGateway = (function () {
     };
   }
 
+  function applyTextStyle_(text, fontSize, isBold, textColor, isItalic) {
+    if (!text) return;
+    var value = text.getText ? text.getText() : '';
+    var hasRange = value && value.length > 0;
+    if (hasRange) {
+      text.setFontFamily(0, value.length - 1, 'Arial');
+      if (fontSize) text.setFontSize(0, value.length - 1, fontSize);
+      if (isBold != null) text.setBold(0, value.length - 1, isBold);
+      if (textColor) text.setForegroundColor(0, value.length - 1, textColor);
+      if (isItalic != null) text.setItalic(0, value.length - 1, isItalic);
+    } else {
+      text.setFontFamily('Arial');
+      if (fontSize) text.setFontSize(fontSize);
+      if (isBold != null) text.setBold(isBold);
+      if (textColor) text.setForegroundColor(textColor);
+      if (isItalic != null) text.setItalic(isItalic);
+    }
+  }
+
+  function replaceCellParagraphs_(cell, lines, fontSize, boldFirst, align, italic) {
+    if (!cell || !cell.removeChild || !cell.appendParagraph) return false;
+    while (cell.getNumChildren() > 0) cell.removeChild(cell.getChild(0));
+    (lines && lines.length ? lines : ['']).forEach(function (line, index) {
+      var p = cell.appendParagraph(String(line == null ? '' : line));
+      if (align != null) p.setAlignment(align);
+      applyTextStyle_(p.editAsText(), fontSize, boldFirst ? index === 0 : false, '#000000', italic === true);
+    });
+    return true;
+  }
+
   function styleCell_(cell, bgColor, align, isBold, fontSize, textColor, padV, padH) {
     if (bgColor) cell.setBackgroundColor(bgColor);
     var pv = (padV != null) ? padV : 2.5;
@@ -147,13 +177,26 @@ var DocsGateway = (function () {
       if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
         var p = child.asParagraph();
         if (align != null) p.setAlignment(align);
-        var t = p.editAsText();
-        t.setFontFamily('Arial');
-        if (fontSize) t.setFontSize(fontSize);
-        if (isBold != null) t.setBold(isBold);
-        if (textColor) t.setForegroundColor(textColor);
+        applyTextStyle_(p.editAsText(), fontSize, isBold, textColor, null);
       }
     }
+  }
+
+  function markSelectedCell_(cell, selected, fontSize) {
+    if (!selected || !cell || !cell.appendParagraph) return;
+    if (cell.setBackgroundColor) cell.setBackgroundColor('#F3E8FF');
+    for (var i = cell.getNumChildren ? cell.getNumChildren() - 1 : -1; i >= 0; i--) {
+      var child = cell.getChild(i);
+      if (child.getType && child.getType() === DocumentApp.ElementType.PARAGRAPH) {
+        var paragraph = child.asParagraph();
+        if (paragraph.getText && paragraph.getText() === '') cell.removeChild(child);
+      }
+    }
+    var marker = cell.appendParagraph('X');
+    if (marker.setAlignment) marker.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    if (marker.setSpacingBefore) marker.setSpacingBefore(1);
+    if (marker.setSpacingAfter) marker.setSpacingAfter(0);
+    applyTextStyle_(marker.editAsText(), fontSize || 8.5, true, '#7E22CE', false);
   }
 
   function formatCell_(cell, fontSize, isBold, textColor, align, padV, padH) {
@@ -169,32 +212,23 @@ var DocsGateway = (function () {
       if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
         var p = child.asParagraph();
         if (align != null) p.setAlignment(align);
-        var t = p.editAsText();
-        t.setFontFamily('Arial');
-        if (fontSize) t.setFontSize(fontSize);
-        if (isBold != null) t.setBold(isBold);
-        if (textColor) t.setForegroundColor(textColor);
+        applyTextStyle_(p.editAsText(), fontSize, isBold, textColor, null);
       }
     }
   }
 
-  function formatLabelValueCell_(cell, fontSize) {
+  function formatLabelValueCell_(cell, fontSize, compact) {
     var sz = fontSize || 7.5;
-    cell.setPaddingTop(2).setPaddingBottom(2).setPaddingLeft(3).setPaddingRight(3);
+    cell.setPaddingTop(compact ? 1.2 : 2).setPaddingBottom(compact ? 1.2 : 2).setPaddingLeft(3).setPaddingRight(3);
+    if (cell.getText && replaceCellParagraphs_(cell, String(cell.getText() || '').split(/\r?\n/), sz, true, DocumentApp.HorizontalAlignment.LEFT, false)) {
+      return;
+    }
     var num = cell.getNumChildren();
     for (var i = 0; i < num; i++) {
       var child = cell.getChild(i);
       if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
         var p = child.asParagraph();
-        var t = p.editAsText();
-        t.setFontFamily('Arial');
-        t.setFontSize(sz);
-        t.setForegroundColor('#000000');
-        if (i === 0) {
-          t.setBold(true);
-        } else {
-          t.setBold(false);
-        }
+        applyTextStyle_(p.editAsText(), sz, i === 0, '#000000', false);
       }
     }
   }
@@ -235,6 +269,7 @@ var DocsGateway = (function () {
         if (cached) {
           var parsed = JSON.parse(cached);
           var blobFromCache = Utilities.newBlob(Utilities.base64Decode(parsed.data), parsed.mimeType, 'logo');
+          if (!/^image\/(png|jpeg)$/i.test(String(parsed.mimeType || ''))) return null;
           memBlobCache_[logoId] = blobFromCache;
           return blobFromCache;
         }
@@ -247,11 +282,23 @@ var DocsGateway = (function () {
       if (typeof DriveApp !== 'undefined') {
         var file = DriveApp.getFileById(logoId);
         var blob = file.getBlob();
+        var mimeType = String(blob.getContentType ? blob.getContentType() : '').toLowerCase();
+        var blobBytes = blob.getBytes ? blob.getBytes() : [];
+        if (!/^image\/(png|jpeg)$/i.test(mimeType) && file.getName) {
+          var fileName = String(file.getName() || '').toLowerCase();
+          if (/\.png$/.test(fileName)) mimeType = 'image/png';
+          if (/\.jpe?g$/.test(fileName)) mimeType = 'image/jpeg';
+          if (/^image\/(png|jpeg)$/i.test(mimeType) && blob.setContentType) blob = blob.setContentType(mimeType);
+        }
+        if (!/^image\/(png|jpeg)$/i.test(mimeType) || !blobBytes.length) {
+          console.warn('Institution logo is not a supported PNG/JPG image: ' + logoId);
+          return null;
+        }
         memBlobCache_[logoId] = blob;
 
         try {
           if (typeof CacheService !== 'undefined') {
-            var bytes = blob.getBytes();
+            var bytes = blobBytes;
             if (bytes.length <= 75000) {
               var payload = JSON.stringify({
                 mimeType: blob.getContentType(),
@@ -287,88 +334,134 @@ var DocsGateway = (function () {
   }
 
   function resolveInstitutionLogoId_(snapshot) {
-    if (snapshot && (snapshot.institutionLogoDriveId || snapshot.logoDriveId)) {
-      return parseDriveFileId_(snapshot.institutionLogoDriveId || snapshot.logoDriveId);
-    }
     try {
       if (typeof SheetsRepository !== 'undefined') {
         var institutions = SheetsRepository.all('INSTITUTIONS');
         if (institutions && institutions.length > 0) {
-          var inst = institutions[0];
-          return parseDriveFileId_(inst.logo_drive_id || inst.logo_file_id || inst.logo_drive_url || '');
+          var institutionId = String(snapshot && (snapshot.institutionId || snapshot.institution_id) || '');
+          var inst = institutions.filter(function (item) {
+            return !institutionId || String(item.institution_id || '') === institutionId;
+          })[0];
+          if (inst) {
+            var currentLogoId = parseDriveFileId_(inst.logo_drive_id || inst.logo_file_id || inst.logo_drive_url || '');
+            if (currentLogoId) return currentLogoId;
+          }
         }
       }
     } catch (e) {
       console.warn('Could not lookup institution logo from SheetsRepository: ' + e.message);
     }
-    return '';
+    return parseDriveFileId_(snapshot && (snapshot.institutionLogoDriveId || snapshot.logoDriveId) || '');
   }
 
-  function appendInstitutionalHeader_(body, snapshot, logoBlob) {
+  function resolveMinistryLogoId_(snapshot) {
+    try {
+      if (typeof SheetsRepository !== 'undefined') {
+        var institutions = SheetsRepository.all('INSTITUTIONS');
+        if (institutions && institutions.length > 0) {
+          var institutionId = String(snapshot && (snapshot.institutionId || snapshot.institution_id) || '');
+          var inst = institutions.filter(function (item) {
+            return !institutionId || String(item.institution_id || '') === institutionId;
+          })[0];
+          if (inst) {
+            var currentLogoId = parseDriveFileId_(inst.ministry_logo_drive_id || inst.ministry_logo_file_id || inst.ministry_logo_drive_url || '');
+            if (currentLogoId) return currentLogoId;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not lookup ministry logo from SheetsRepository: ' + e.message);
+    }
+    return parseDriveFileId_(snapshot && (snapshot.institutionMinistryLogoDriveId || snapshot.ministryLogoDriveId) || '');
+  }
+
+  function appendHeaderLogo_(cell, logoBlob, compact) {
+    cell.setPaddingTop(compact ? 1 : 2).setPaddingBottom(compact ? 2 : 4).setPaddingLeft(8).setPaddingRight(8);
+    cell.setWidth(100);
+    if (!logoBlob) return false;
+    try {
+      var img = cell.appendImage(logoBlob);
+      var origW = (img && img.getWidth) ? img.getWidth() : 100;
+      var origH = (img && img.getHeight) ? img.getHeight() : 50;
+      var ratio = Math.min((compact ? 74 : 76) / origW, (compact ? 54 : 64) / origH, 1);
+      if (img && img.setWidth) img.setWidth(Math.round(origW * ratio));
+      if (img && img.setHeight) img.setHeight(Math.round(origH * ratio));
+      if (cell.getNumChildren() > 1 && cell.getChild(0).getType && cell.getChild(0).getType() === DocumentApp.ElementType.PARAGRAPH) {
+        var firstP = cell.getChild(0).asParagraph();
+        if (firstP.getText && firstP.getText() === '') firstP.removeFromParent();
+      }
+      if (cell.getNumChildren() && cell.getChild(0).getType && cell.getChild(0).getType() === DocumentApp.ElementType.PARAGRAPH) {
+        cell.getChild(0).asParagraph().setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      }
+      if (cell.setVerticalAlignment && DocumentApp.VerticalAlignment) cell.setVerticalAlignment(DocumentApp.VerticalAlignment.CENTER);
+      return true;
+    } catch (eImg) {
+      console.warn('No se pudo insertar una imagen del encabezado: ' + eImg.message);
+      return false;
+    }
+  }
+
+  function appendInstitutionalHeader_(body, snapshot, logoBlob, ministryLogoBlob, compact) {
     var instName = String(snapshot.institutionNameSnapshot || 'INSTITUCIÓN EDUCATIVA').toUpperCase();
-    var locationParts = [];
-    if (snapshot.district) locationParts.push('Distrito ' + snapshot.district);
-    if (snapshot.circuit) locationParts.push('Circuito ' + snapshot.circuit);
-    if (snapshot.zone) locationParts.push('Zona ' + snapshot.zone);
-    if (!locationParts.length && snapshot.location) locationParts.push(snapshot.location);
-    var subLocation = locationParts.join(' · ');
+    var address = String(snapshot.institutionAddress || '').trim();
+    var phone = String(snapshot.institutionPhone || '').trim();
+    var email = String(snapshot.institutionEmail || '').trim();
+    var placeParts = [snapshot.location, snapshot.institutionProvince].filter(function (value) { return String(value || '').trim(); });
+    var place = placeParts.join(' - ').toUpperCase();
 
     var table = body.appendTable();
     table.setBorderColor('#FFFFFF');
     table.setBorderWidth(0);
 
     var row = table.appendTableRow();
-    var hasLogo = false;
+    var cellText;
 
-    if (logoBlob) {
-      try {
-        var cellLogo = row.appendTableCell();
-        cellLogo.setPaddingTop(2).setPaddingBottom(4).setPaddingLeft(0).setPaddingRight(6);
-        var img = cellLogo.appendImage(logoBlob);
-        var origW = (img && img.getWidth) ? img.getWidth() : 100;
-        var origH = (img && img.getHeight) ? img.getHeight() : 50;
-        var maxW = 100;
-        var maxH = 46;
-        var ratio = Math.min(maxW / origW, maxH / origH, 1);
-        if (img && img.setWidth) img.setWidth(Math.round(origW * ratio));
-        if (img && img.setHeight) img.setHeight(Math.round(origH * ratio));
-        if (cellLogo.getNumChildren() > 1 && cellLogo.getChild(0).getType && cellLogo.getChild(0).getType() === DocumentApp.ElementType.PARAGRAPH) {
-          var firstP = cellLogo.getChild(0).asParagraph();
-          if (firstP.getText && firstP.getText() === '') {
-            firstP.removeFromParent();
-          }
-        }
-        cellLogo.setWidth(105);
-        hasLogo = true;
-      } catch (eImg) {
-        console.warn('No se pudo insertar la imagen del logo: ' + eImg.message);
-        hasLogo = false;
-      }
+    if (logoBlob || ministryLogoBlob) {
+      var cellMinistryLogo = row.appendTableCell();
+      appendHeaderLogo_(cellMinistryLogo, ministryLogoBlob, compact);
+
+      cellText = row.appendTableCell();
+      cellText.setPaddingTop(compact ? 1 : 3).setPaddingBottom(compact ? 1 : 3).setPaddingLeft(0).setPaddingRight(0);
+      cellText.setWidth(340);
+
+      var cellInstitutionLogo = row.appendTableCell();
+      appendHeaderLogo_(cellInstitutionLogo, logoBlob, compact);
+    } else {
+      cellText = row.appendTableCell();
+      cellText.setPaddingTop(2).setPaddingBottom(4).setPaddingLeft(0).setPaddingRight(0);
+      cellText.setWidth(540);
     }
-
-    var cellText = row.appendTableCell();
-    cellText.setPaddingTop(2).setPaddingBottom(4).setPaddingLeft(hasLogo ? 6 : 0).setPaddingRight(0);
-    cellText.setWidth(hasLogo ? 435 : 540);
 
     var pName = cellText.getChild(0).asParagraph();
     pName.setText(instName);
-    pName.setFontFamily('Arial').setFontSize(10.5).setBold(true);
+    pName.setFontFamily('Times New Roman').setFontSize(compact ? 12 : 13).setBold(true).setForegroundColor('#183153');
     pName.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
 
-    if (subLocation) {
-      var pLoc = cellText.appendParagraph(subLocation);
-      pLoc.setFontFamily('Arial').setFontSize(7.5).setForegroundColor('#475569');
-      pLoc.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    if (address) {
+      var pAddress = cellText.appendParagraph('Dirección: ' + address);
+      pAddress.setFontFamily('Times New Roman').setFontSize(compact ? 7 : 7.5).setForegroundColor('#183153');
+      pAddress.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
     }
 
-    var pSub = cellText.appendParagraph('SISTEMA DE GESTIÓN Y SEGUIMIENTO A LA PRÁCTICA PEDAGÓGICA');
-    pSub.setFontFamily('Arial').setFontSize(7.5).setBold(true).setForegroundColor('#166534');
-    pSub.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    var contactParts = [];
+    if (phone) contactParts.push('Telf. ' + phone);
+    if (email) contactParts.push('email: ' + email);
+    if (contactParts.length) {
+      var pContact = cellText.appendParagraph(contactParts.join('    '));
+      pContact.setFontFamily('Times New Roman').setFontSize(compact ? 7 : 7.5).setForegroundColor('#183153');
+      pContact.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    }
+
+    if (place) {
+      var pPlace = cellText.appendParagraph(place);
+      pPlace.setFontFamily('Times New Roman').setFontSize(compact ? 8.5 : 9.5).setBold(true).setForegroundColor('#183153');
+      pPlace.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    }
 
     try {
       var pDivider = body.appendParagraph('');
       if (pDivider.setFontSize) pDivider.setFontSize(2);
-      if (pDivider.setSpacingAfter) pDivider.setSpacingAfter(2);
+      if (pDivider.setSpacingAfter) pDivider.setSpacingAfter(compact ? 1 : 2);
       if (pDivider.setSpacingBefore) pDivider.setSpacingBefore(0);
     } catch (e) {}
   }
@@ -411,17 +504,21 @@ var DocsGateway = (function () {
     cell.setWidth(540);
   }
 
-  function buildGeneralCriteriaTable_(table, snapshot) {
+  function buildGeneralCriteriaTable_(table, snapshot, compact) {
+    var headerSize = compact ? 7.1 : 7.5;
+    var rowSize = compact ? 6.7 : 7;
+    var verticalPadding = compact ? 1.2 : 2;
     var hRow = table.appendTableRow();
     hRow.appendTableCell('CRITERIOS GENERALES\nEstos criterios se relacionan con los tres momentos de los procesos de enseñanza y aprendizaje (excepto el criterio No 1)');
     hRow.appendTableCell('Totalmente de acuerdo');
     hRow.appendTableCell('En desacuerdo\n(Argumente la respuesta)');
-    styleCell_(hRow.getCell(0), DocColors.GRAY_HEADER, DocumentApp.HorizontalAlignment.LEFT, true, 7.5, '#000000', 2, 3);
-    styleCell_(hRow.getCell(1), DocColors.GRAY_HEADER, DocumentApp.HorizontalAlignment.CENTER, true, 7.5, '#000000', 2, 3);
-    styleCell_(hRow.getCell(2), DocColors.GRAY_HEADER, DocumentApp.HorizontalAlignment.CENTER, true, 7.5, '#000000', 2, 3);
+    styleCell_(hRow.getCell(0), DocColors.GRAY_HEADER, DocumentApp.HorizontalAlignment.LEFT, true, headerSize, '#000000', verticalPadding, 3);
+    styleCell_(hRow.getCell(1), DocColors.GRAY_HEADER, DocumentApp.HorizontalAlignment.CENTER, true, headerSize, '#000000', verticalPadding, 3);
+    styleCell_(hRow.getCell(2), DocColors.GRAY_HEADER, DocumentApp.HorizontalAlignment.CENTER, true, headerSize, '#000000', verticalPadding, 3);
     hRow.getCell(0).setWidth(300);
     hRow.getCell(1).setWidth(100);
     hRow.getCell(2).setWidth(140);
+    if (compact && hRow.setMinimumHeight) { try { hRow.setMinimumHeight(25); } catch (eHeaderHeight) {} }
 
     var responses = snapshot.generalResponses || [];
     var seedGeneral = (typeof SeedData !== 'undefined' && SeedData.general) ? SeedData.general : [];
@@ -430,21 +527,29 @@ var DocsGateway = (function () {
       var gText = r.criterionText || seedGeneral[i] || ('Criterio general ' + (i + 1));
       var row = table.appendTableRow();
       var cText = (i + 1) + '. ' + gText;
-      var cAgree = r.result === 'FULLY_AGREE' ? '[ X ]' : '[   ]';
-      var cDisagree = r.result === 'DISAGREE' ? ('[ X ] ' + (r.argument ? '\n' + r.argument : '')) : '[   ]';
+      var cAgree = '';
+      var cDisagree = r.result === 'DISAGREE' ? (r.argument || '') : '';
       row.appendTableCell(cText);
       row.appendTableCell(cAgree);
       row.appendTableCell(cDisagree);
-      styleCell_(row.getCell(0), null, DocumentApp.HorizontalAlignment.LEFT, false, 7, '#000000', 2, 3);
-      styleCell_(row.getCell(1), null, DocumentApp.HorizontalAlignment.CENTER, r.result === 'FULLY_AGREE', 7.5, '#000000', 2, 3);
-      styleCell_(row.getCell(2), null, DocumentApp.HorizontalAlignment.LEFT, false, 7, '#000000', 2, 3);
+      styleCell_(row.getCell(0), null, DocumentApp.HorizontalAlignment.LEFT, false, rowSize, '#000000', verticalPadding, 3);
+      styleCell_(row.getCell(1), null, DocumentApp.HorizontalAlignment.CENTER, r.result === 'FULLY_AGREE', compact ? 7 : 7.5, '#000000', verticalPadding, 3);
+      styleCell_(row.getCell(2), null, DocumentApp.HorizontalAlignment.LEFT, false, rowSize, '#000000', verticalPadding, 3);
+      markSelectedCell_(row.getCell(1), r.result === 'FULLY_AGREE', compact ? 8 : 8.5);
+      markSelectedCell_(row.getCell(2), r.result === 'DISAGREE', compact ? 8 : 8.5);
       row.getCell(0).setWidth(300);
       row.getCell(1).setWidth(100);
       row.getCell(2).setWidth(140);
+      if (compact && row.setMinimumHeight) { try { row.setMinimumHeight(20); } catch (eRowHeight) {} }
     }
   }
 
-  function buildAnnex2RubricTable_(table, snapshot) {
+  function buildAnnex2RubricTable_(table, snapshot, compact) {
+    var headerSize = compact ? 6.8 : 7;
+    var sectionSize = compact ? 6.6 : 7;
+    var titleSize = compact ? 6.3 : 6.6;
+    var valueSize = compact ? 6.5 : 6.8;
+    var verticalPadding = compact ? 0.7 : 0.8;
     var hRow = table.appendTableRow();
     hRow.appendTableCell('CRITERIOS');
     hRow.appendTableCell('LOGRADO');
@@ -453,14 +558,15 @@ var DocsGateway = (function () {
     hRow.appendTableCell('NO APLICA');
     hRow.appendTableCell('OBSERVACIÓN');
     for (var c = 0; c < 6; c++) {
-      styleCell_(hRow.getCell(c), DocColors.PURPLE_LIGHT, DocumentApp.HorizontalAlignment.CENTER, true, 7.5, '#000000', 2, 3);
+      styleCell_(hRow.getCell(c), DocColors.PURPLE_LIGHT, DocumentApp.HorizontalAlignment.CENTER, true, headerSize, '#000000', compact ? 0.8 : 1, 3);
     }
-    hRow.getCell(0).setWidth(180);
-    hRow.getCell(1).setWidth(55);
-    hRow.getCell(2).setWidth(55);
-    hRow.getCell(3).setWidth(55);
-    hRow.getCell(4).setWidth(55);
-    hRow.getCell(5).setWidth(140);
+    hRow.getCell(0).setWidth(220);
+    hRow.getCell(1).setWidth(50);
+    hRow.getCell(2).setWidth(50);
+    hRow.getCell(3).setWidth(50);
+    hRow.getCell(4).setWidth(50);
+    hRow.getCell(5).setWidth(120);
+    if (compact && hRow.setMinimumHeight) { try { hRow.setMinimumHeight(19); } catch (eRubHeaderHeight) {} }
 
     var responses = snapshot.rubricResponses || [];
     MOMENT_CONFIG.forEach(function (m) {
@@ -472,8 +578,9 @@ var DocsGateway = (function () {
       sRow.appendTableCell('');
       sRow.appendTableCell('');
       for (var k = 0; k < 6; k++) {
-        styleCell_(sRow.getCell(k), DocColors.PURPLE_MID, DocumentApp.HorizontalAlignment.LEFT, true, 7.5, '#FFFFFF', 2, 3);
+        styleCell_(sRow.getCell(k), DocColors.PURPLE_MID, DocumentApp.HorizontalAlignment.LEFT, true, sectionSize, '#FFFFFF', compact ? 0.7 : 1, 3);
       }
+      if (compact && sRow.setMinimumHeight) { try { sRow.setMinimumHeight(14); } catch (eSectionHeight) {} }
 
       m.criteria.forEach(function (num) {
         var r = responses[num - 1] || {};
@@ -481,30 +588,35 @@ var DocsGateway = (function () {
         var row = table.appendTableRow();
         var cTitle = num + '. ' + String(r.criterionTitle || (seedItem ? seedItem[2] : ('Criterio ' + num))).toUpperCase();
         row.appendTableCell(cTitle);
-        row.appendTableCell(r.level === 'ACHIEVED' ? '[ X ]' : '[   ]');
-        row.appendTableCell(r.level === 'IN_PROGRESS' ? '[ X ]' : '[   ]');
-        row.appendTableCell(r.level === 'BEGINNING' ? '[ X ]' : '[   ]');
-        row.appendTableCell(r.level === 'NOT_APPLICABLE' ? '[ X ]' : '[   ]');
+        row.appendTableCell('');
+        row.appendTableCell('');
+        row.appendTableCell('');
+        row.appendTableCell('');
         row.appendTableCell(r.observation || '');
 
-        styleCell_(row.getCell(0), null, DocumentApp.HorizontalAlignment.LEFT, true, 6.8, '#000000', 1.8, 3);
-        styleCell_(row.getCell(1), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'ACHIEVED', 7.2, '#000000', 1.8, 3);
-        styleCell_(row.getCell(2), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'IN_PROGRESS', 7.2, '#000000', 1.8, 3);
-        styleCell_(row.getCell(3), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'BEGINNING', 7.2, '#000000', 1.8, 3);
-        styleCell_(row.getCell(4), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'NOT_APPLICABLE', 7.2, '#000000', 1.8, 3);
-        styleCell_(row.getCell(5), null, DocumentApp.HorizontalAlignment.LEFT, false, 6.8, '#000000', 1.8, 3);
+        styleCell_(row.getCell(0), null, DocumentApp.HorizontalAlignment.LEFT, true, titleSize, '#000000', verticalPadding, 3);
+        styleCell_(row.getCell(1), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'ACHIEVED', valueSize, '#000000', verticalPadding, 3);
+        styleCell_(row.getCell(2), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'IN_PROGRESS', valueSize, '#000000', verticalPadding, 3);
+        styleCell_(row.getCell(3), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'BEGINNING', valueSize, '#000000', verticalPadding, 3);
+        styleCell_(row.getCell(4), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'NOT_APPLICABLE', valueSize, '#000000', verticalPadding, 3);
+        styleCell_(row.getCell(5), null, DocumentApp.HorizontalAlignment.LEFT, false, titleSize, '#000000', verticalPadding, 3);
+        markSelectedCell_(row.getCell(1), r.level === 'ACHIEVED', compact ? 8 : 8.5);
+        markSelectedCell_(row.getCell(2), r.level === 'IN_PROGRESS', compact ? 8 : 8.5);
+        markSelectedCell_(row.getCell(3), r.level === 'BEGINNING', compact ? 8 : 8.5);
+        markSelectedCell_(row.getCell(4), r.level === 'NOT_APPLICABLE', compact ? 8 : 8.5);
 
-        row.getCell(0).setWidth(180);
-        row.getCell(1).setWidth(55);
-        row.getCell(2).setWidth(55);
-        row.getCell(3).setWidth(55);
-        row.getCell(4).setWidth(55);
-        row.getCell(5).setWidth(140);
+        row.getCell(0).setWidth(220);
+        row.getCell(1).setWidth(50);
+        row.getCell(2).setWidth(50);
+        row.getCell(3).setWidth(50);
+        row.getCell(4).setWidth(50);
+        row.getCell(5).setWidth(120);
+        if (compact && row.setMinimumHeight) { try { row.setMinimumHeight(14); } catch (eCriterionHeight) {} }
       });
     });
   }
 
-  function buildAnnex3RubricTable_(table, snapshot) {
+  function buildAnnex3RubricTable_(table, snapshot, criterionNumbers) {
     var hRow = table.appendTableRow();
     hRow.appendTableCell('CRITERIOS');
     hRow.appendTableCell('LOGRADO');
@@ -521,7 +633,12 @@ var DocsGateway = (function () {
     hRow.getCell(4).setWidth(50);
 
     var responses = snapshot.rubricResponses || [];
+    var selected = criterionNumbers && criterionNumbers.length ? criterionNumbers : null;
     MOMENT_CONFIG.forEach(function (m) {
+      var visibleCriteria = m.criteria.filter(function (num) {
+        return !selected || selected.indexOf(num) >= 0;
+      });
+      if (!visibleCriteria.length) return;
       var sRow = table.appendTableRow();
       sRow.appendTableCell(m.title);
       sRow.appendTableCell('');
@@ -532,7 +649,7 @@ var DocsGateway = (function () {
         styleCell_(sRow.getCell(k), DocColors.PURPLE_MID, DocumentApp.HorizontalAlignment.LEFT, true, 7.5, '#FFFFFF', 2, 3);
       }
 
-      m.criteria.forEach(function (num) {
+      visibleCriteria.forEach(function (num) {
         var r = responses[num - 1] || {};
         var seedItem = (typeof SeedData !== 'undefined' && SeedData.rubric && SeedData.rubric[num - 1]) ? SeedData.rubric[num - 1] : null;
         var cTitle = num + '. ' + String(r.criterionTitle || (seedItem ? seedItem[2] : ('Criterio ' + num))).toUpperCase();
@@ -541,15 +658,10 @@ var DocsGateway = (function () {
         var descInProgress = r.descriptorInProgress || (seedItem ? seedItem[4] : '');
         var descBeginning = r.descriptorBeginning || (seedItem ? seedItem[5] : '');
 
-        var achMark = r.level === 'ACHIEVED' ? '[ X ]' : '[   ]';
-        var progMark = r.level === 'IN_PROGRESS' ? '[ X ]' : '[   ]';
-        var begMark = r.level === 'BEGINNING' ? '[ X ]' : '[   ]';
-        var naMark = r.level === 'NOT_APPLICABLE' ? '[ X ]' : '[   ]';
-
-        var achText = (descAchieved ? descAchieved + '\n' : '') + achMark;
-        var progText = (descInProgress ? descInProgress + '\n' : '') + progMark;
-        var begText = (descBeginning ? descBeginning + '\n' : '') + begMark;
-        var naText = naMark;
+        var achText = descAchieved || '';
+        var progText = descInProgress || '';
+        var begText = descBeginning || '';
+        var naText = '';
 
         var row = table.appendTableRow();
         row.appendTableCell(cTitle);
@@ -558,11 +670,19 @@ var DocsGateway = (function () {
         row.appendTableCell(begText);
         row.appendTableCell(naText);
 
-        styleCell_(row.getCell(0), null, DocumentApp.HorizontalAlignment.LEFT, true, 6.8, '#000000', 1.8, 3);
-        styleCell_(row.getCell(1), null, DocumentApp.HorizontalAlignment.LEFT, false, 6.8, '#000000', 1.8, 3);
-        styleCell_(row.getCell(2), null, DocumentApp.HorizontalAlignment.LEFT, false, 6.8, '#000000', 1.8, 3);
-        styleCell_(row.getCell(3), null, DocumentApp.HorizontalAlignment.LEFT, false, 6.8, '#000000', 1.8, 3);
-        styleCell_(row.getCell(4), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'NOT_APPLICABLE', 7, '#000000', 1.8, 2);
+        styleCell_(row.getCell(0), null, DocumentApp.HorizontalAlignment.LEFT, true, 7.2, '#000000', 2, 3);
+        styleCell_(row.getCell(1), null, DocumentApp.HorizontalAlignment.LEFT, false, 7.2, '#000000', 2, 3);
+        styleCell_(row.getCell(2), null, DocumentApp.HorizontalAlignment.LEFT, false, 7.2, '#000000', 2, 3);
+        styleCell_(row.getCell(3), null, DocumentApp.HorizontalAlignment.LEFT, false, 7.2, '#000000', 2, 3);
+        styleCell_(row.getCell(4), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'NOT_APPLICABLE', 7.2, '#000000', 2, 2);
+        markSelectedCell_(row.getCell(1), r.level === 'ACHIEVED', 9);
+        markSelectedCell_(row.getCell(2), r.level === 'IN_PROGRESS', 9);
+        markSelectedCell_(row.getCell(3), r.level === 'BEGINNING', 9);
+        markSelectedCell_(row.getCell(4), r.level === 'NOT_APPLICABLE', 9);
+
+        if (row.setMinimumHeight) {
+          try { row.setMinimumHeight(criterionNumbers && criterionNumbers.length === 7 ? 56 : 49); } catch (eHeight) {}
+        }
 
         row.getCell(0).setWidth(110);
         row.getCell(1).setWidth(135);
@@ -643,8 +763,8 @@ var DocsGateway = (function () {
     }
   }
 
-  function buildAnnex1Section_(body, snapshot, logoBlob) {
-    appendInstitutionalHeader_(body, snapshot, logoBlob);
+  function buildAnnex1Section_(body, snapshot, logoBlob, ministryLogoBlob) {
+    appendInstitutionalHeader_(body, snapshot, logoBlob, ministryLogoBlob);
 
     appendBannerBox_(body, 'REGISTRO DE LA OBSERVACIÓN DE CLASE');
 
@@ -691,17 +811,14 @@ var DocsGateway = (function () {
       try { textTable.getRow(0).setMinimumHeight(180); } catch (e) {}
     }
     var cNarr = textTable.getCell(0, 0);
-    formatCell_(cNarr, 8.5, false, '#000000', DocumentApp.HorizontalAlignment.LEFT, 4, 4, 5, 5);
+    replaceCellParagraphs_(cNarr, String(snapshot.observationRecord || 'Sin observaciones narrativas registradas.').split(/\r?\n/), 8, false, DocumentApp.HorizontalAlignment.LEFT, false);
+    formatCell_(cNarr, 8, false, '#000000', DocumentApp.HorizontalAlignment.LEFT, 4, 4, 5, 5);
     cNarr.setWidth(540);
 
-    appendSpacer_(body, 2);
-    var sigTable = body.appendTable();
-    sigTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
-    buildSignaturesTable_(sigTable, snapshot);
   }
 
-  function buildAnnex2Section_(body, snapshot, logoBlob) {
-    appendInstitutionalHeader_(body, snapshot, logoBlob);
+  function buildAnnex2Section_(body, snapshot, logoBlob, ministryLogoBlob) {
+    appendInstitutionalHeader_(body, snapshot, logoBlob, ministryLogoBlob, true);
 
     var fNum = snapshot.formNumber || snapshot.visitCode || '';
     appendBannerBox_(body, 'FICHA DE OBSERVACIÓN DE CLASE', fNum ? ('No. ' + fNum) : '');
@@ -712,7 +829,7 @@ var DocsGateway = (function () {
     var tableInst = body.appendTable([
       [
         'NOMBRE DE LA INSTITUCIÓN:\n' + (snapshot.institutionNameSnapshot || ''),
-        'UBICACIÓN:\n' + (snapshot.location || ''),
+        'CANTÓN:\n' + (snapshot.location || ''),
         'ZONA:\n' + (snapshot.zone || ''),
         'DISTRITO:\n' + (snapshot.district || ''),
         'CIRCUITO:\n' + (snapshot.circuit || ''),
@@ -724,7 +841,7 @@ var DocsGateway = (function () {
     var colWidthsInst = [140, 80, 45, 55, 50, 105, 65];
     for (var c1 = 0; c1 < 7; c1++) {
       var cell1 = tableInst.getRow(0).getCell(c1);
-      formatLabelValueCell_(cell1, 7.5);
+      formatLabelValueCell_(cell1, 7.1, true);
       cell1.setWidth(colWidthsInst[c1]);
     }
 
@@ -743,7 +860,7 @@ var DocsGateway = (function () {
     var colWidthsDoc = [150, 125, 90, 95, 80];
     for (var c2 = 0; c2 < 5; c2++) {
       var cell2 = tableDoc.getRow(0).getCell(c2);
-      formatLabelValueCell_(cell2, 7.5);
+      formatLabelValueCell_(cell2, 7.1, true);
       cell2.setWidth(colWidthsDoc[c2]);
     }
 
@@ -760,7 +877,7 @@ var DocsGateway = (function () {
     var colWidthsGrade = [150, 70, 160, 160];
     for (var c3 = 0; c3 < 4; c3++) {
       var cell3 = tableGrade.getRow(0).getCell(c3);
-      formatLabelValueCell_(cell3, 7.5);
+      formatLabelValueCell_(cell3, 7.1, true);
       cell3.setWidth(colWidthsGrade[c3]);
     }
 
@@ -771,7 +888,7 @@ var DocsGateway = (function () {
     objTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
     for (var ro = 0; ro < objTable.getNumRows(); ro++) {
       var cObj = objTable.getRow(ro).getCell(0);
-      formatCell_(cObj, 7.5, ro === 0, '#000000', DocumentApp.HorizontalAlignment.LEFT, 2.5, 2.5, 4, 4);
+      formatCell_(cObj, 7, ro === 0, '#000000', DocumentApp.HorizontalAlignment.LEFT, 1.4, 2.5, 4, 4);
       if (ro === 1) {
         for (var ic = 0; ic < cObj.getNumChildren(); ic++) {
           if (cObj.getChild(ic).getType() === DocumentApp.ElementType.PARAGRAPH) {
@@ -782,31 +899,25 @@ var DocsGateway = (function () {
       cObj.setWidth(540);
     }
 
-    appendSpacer_(body, 2);
     var genTable = body.appendTable();
     genTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
-    buildGeneralCriteriaTable_(genTable, snapshot);
+    buildGeneralCriteriaTable_(genTable, snapshot, true);
 
-    appendSpacer_(body, 2);
     appendSectionHeader_(body, 'PROCESOS DE ENSEÑANZA Y APRENDIZAJE', DocColors.GRAY_HEADER);
 
     var pInst2 = body.appendParagraph('INSTRUCCIONES: Marque una x en el casillero que corresponda a su conformidad con alguno de los criterios enunciados.');
-    pInst2.setFontFamily('Arial').setFontSize(7).setItalic(true);
-    if (pInst2.setSpacingBefore) pInst2.setSpacingBefore(1);
-    if (pInst2.setSpacingAfter) pInst2.setSpacingAfter(2);
+    pInst2.setFontFamily('Arial').setFontSize(6.7).setItalic(true);
+    if (pInst2.setSpacingBefore) pInst2.setSpacingBefore(0);
+    if (pInst2.setSpacingAfter) pInst2.setSpacingAfter(1);
 
     var rubTable = body.appendTable();
     rubTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
-    buildAnnex2RubricTable_(rubTable, snapshot);
+    buildAnnex2RubricTable_(rubTable, snapshot, true);
 
-    appendSpacer_(body, 2);
-    var sigTable = body.appendTable();
-    sigTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
-    buildSignaturesTable_(sigTable, snapshot);
   }
 
-  function buildAnnex3Section_(body, snapshot, logoBlob) {
-    appendInstitutionalHeader_(body, snapshot, logoBlob);
+  function buildAnnex3Section_(body, snapshot, logoBlob, ministryLogoBlob) {
+    appendInstitutionalHeader_(body, snapshot, logoBlob, ministryLogoBlob);
 
     appendBannerBox_(body, 'RÚBRICA PARA LA FICHA DE OBSERVACIÓN DE CLASE');
 
@@ -831,16 +942,19 @@ var DocsGateway = (function () {
     appendSpacer_(body, 2);
     var rubTable = body.appendTable();
     rubTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
-    buildAnnex3RubricTable_(rubTable, snapshot);
+    buildAnnex3RubricTable_(rubTable, snapshot, [1, 2, 3, 4, 5, 6, 7]);
 
+    body.appendPageBreak();
+    appendInstitutionalHeader_(body, snapshot, logoBlob, ministryLogoBlob);
+    appendBannerBox_(body, 'RÚBRICA PARA LA FICHA DE OBSERVACIÓN DE CLASE', '(CONTINUACIÓN)');
     appendSpacer_(body, 2);
-    var sigTable = body.appendTable();
-    sigTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
-    buildSignaturesTable_(sigTable, snapshot);
+    var rubTableContinuation = body.appendTable();
+    rubTableContinuation.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
+    buildAnnex3RubricTable_(rubTableContinuation, snapshot, [8, 9, 10, 11, 12, 13, 14, 15]);
   }
 
-  function buildAnnex5Section_(body, snapshot, logoBlob) {
-    appendInstitutionalHeader_(body, snapshot, logoBlob);
+  function buildAnnex5Section_(body, snapshot, logoBlob, ministryLogoBlob) {
+    appendInstitutionalHeader_(body, snapshot, logoBlob, ministryLogoBlob);
 
     appendBannerBox_(body, 'REGISTRO PARA LA REFLEXIÓN PEDAGÓGICA');
 
@@ -929,53 +1043,44 @@ var DocsGateway = (function () {
     buildSignaturesTable_(sigTable, snapshot);
   }
 
-  function buildFullPackage_(body, snapshot, logoBlob) {
-    buildAnnex1Section_(body, snapshot, logoBlob);
+  function buildFullPackage_(body, snapshot, logoBlob, ministryLogoBlob) {
+    buildAnnex1Section_(body, snapshot, logoBlob, ministryLogoBlob);
     body.appendPageBreak();
-    buildAnnex2Section_(body, snapshot, logoBlob);
+    buildAnnex2Section_(body, snapshot, logoBlob, ministryLogoBlob);
     body.appendPageBreak();
-    buildAnnex3Section_(body, snapshot, logoBlob);
+    buildAnnex3Section_(body, snapshot, logoBlob, ministryLogoBlob);
     body.appendPageBreak();
-    buildAnnex5Section_(body, snapshot, logoBlob);
+    buildAnnex5Section_(body, snapshot, logoBlob, ministryLogoBlob);
   }
 
-  function buildDocument_(body, snapshot, type, logoBlob) {
+  function buildDocument_(body, snapshot, type, logoBlob, ministryLogoBlob) {
     if (type === 'ANNEX_1') {
-      buildAnnex1Section_(body, snapshot, logoBlob);
+      buildAnnex1Section_(body, snapshot, logoBlob, ministryLogoBlob);
     } else if (type === 'ANNEX_2') {
-      buildAnnex2Section_(body, snapshot, logoBlob);
+      buildAnnex2Section_(body, snapshot, logoBlob, ministryLogoBlob);
     } else if (type === 'ANNEX_3') {
-      buildAnnex3Section_(body, snapshot, logoBlob);
+      buildAnnex3Section_(body, snapshot, logoBlob, ministryLogoBlob);
     } else if (type === 'ANNEX_5') {
-      buildAnnex5Section_(body, snapshot, logoBlob);
+      buildAnnex5Section_(body, snapshot, logoBlob, ministryLogoBlob);
     } else if (type === 'FULL_PACKAGE') {
-      buildFullPackage_(body, snapshot, logoBlob);
+      buildFullPackage_(body, snapshot, logoBlob, ministryLogoBlob);
     }
   }
 
   function setupDocumentFooter_(doc, snapshot, type) {
     if (!doc) return;
-    var footerLabels = {
-      ANNEX_1: 'Anexo 1: Registro de la observación de clase',
-      ANNEX_2: 'Anexo 2: Ficha de observación de clase',
-      ANNEX_3: 'Anexo 3: Rúbrica para la ficha de observación de clase',
-      ANNEX_5: 'Anexo 5: Registro para la reflexión pedagógica',
-      FULL_PACKAGE: 'Expediente Oficial de Observación de Clase (Anexos 1, 2, 3 y 5)'
-    };
-    var label = footerLabels[type] || 'Sistema de Observación de Clase';
-    var code = (snapshot && snapshot.visitCode) ? snapshot.visitCode : '';
-    var footerText = label + (code ? ' · ' + code : '');
-
     try {
       var footer = (doc.getFooter && doc.getFooter()) || (doc.addFooter && doc.addFooter());
       if (footer) {
         if (footer.clear) footer.clear();
-        var p = footer.appendParagraph(footerText);
-        if (p.setFontFamily) p.setFontFamily('Arial');
-        if (p.setFontSize) p.setFontSize(7.5);
-        if (p.setForegroundColor) p.setForegroundColor('#64748B');
-        if (p.setAlignment && typeof DocumentApp !== 'undefined' && DocumentApp.HorizontalAlignment) {
-          p.setAlignment(DocumentApp.HorizontalAlignment.RIGHT);
+        var pSystem = footer.appendParagraph('SISTEMA DE GESTIÓN Y SEGUIMIENTO A LA PRÁCTICA PEDAGÓGICA');
+        if (pSystem.setFontFamily) pSystem.setFontFamily('Arial');
+        if (pSystem.setFontSize) pSystem.setFontSize(7.2);
+        if (pSystem.setBold) pSystem.setBold(true);
+        if (pSystem.setForegroundColor) pSystem.setForegroundColor('#166534');
+        if (pSystem.setSpacingAfter) pSystem.setSpacingAfter(1);
+        if (pSystem.setAlignment && typeof DocumentApp !== 'undefined' && DocumentApp.HorizontalAlignment) {
+          pSystem.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
         }
       }
     } catch (e) {
@@ -999,8 +1104,16 @@ var DocsGateway = (function () {
 
     var logoId = resolveInstitutionLogoId_(snapshot);
     var logoBlob = getLogoBlob_(logoId);
+    if (logoId && !logoBlob) {
+      throw AppErrors.document('El logo institucional está configurado, pero no se pudo leer como imagen PNG o JPG. Vuelva a cargarlo desde Administración.');
+    }
+    var ministryLogoId = resolveMinistryLogoId_(snapshot);
+    var ministryLogoBlob = getLogoBlob_(ministryLogoId);
+    if (ministryLogoId && !ministryLogoBlob) {
+      throw AppErrors.document('El logo ministerial estÃ¡ configurado, pero no se pudo leer como imagen PNG o JPG. Vuelva a cargarlo desde AdministraciÃ³n.');
+    }
 
-    buildDocument_(body, snapshot, type, logoBlob);
+    buildDocument_(body, snapshot, type, logoBlob, ministryLogoBlob);
 
     if (body.getNumChildren() > 1 && body.getChild(0).getType() === DocumentApp.ElementType.PARAGRAPH) {
       var firstP = body.getChild(0).asParagraph();
@@ -1032,6 +1145,7 @@ var DocsGateway = (function () {
     getLogoBlob: getLogoBlob_,
     clearLogoCache: clearLogoCache_,
     resolveInstitutionLogoId: resolveInstitutionLogoId_,
+    resolveMinistryLogoId: resolveMinistryLogoId_,
     appendInstitutionalHeader: appendInstitutionalHeader_,
     setupDocumentFooter: setupDocumentFooter_
   };
