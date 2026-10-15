@@ -631,7 +631,7 @@ var DocsGateway = (function () {
     var rNames = table.appendTableRow();
     if (rawCo) {
       rNames.appendTableCell('NOMBRE: ' + ev1Clean);
-      rNames.appendTableCell('NOMBRE: ' + coClean);
+      rNames.appendTableCell('NOMBRE: ' + co);
       rNames.appendTableCell('NOMBRE: ' + teacherClean);
     } else {
       rNames.appendTableCell('NOMBRE: ' + ev1Clean);
