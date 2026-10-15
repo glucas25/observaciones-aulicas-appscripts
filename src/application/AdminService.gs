@@ -158,8 +158,10 @@ var AdminService = (function () {
     var canEval = ['ADMIN', 'DIRECTIVE', 'EVALUATOR'].some(function (r) { return evRoles.indexOf(r) >= 0; });
     if (!canEval) throw AppErrors.validation('El usuario seleccionado no tiene permiso para evaluar (ADMIN, DIRECTIVE o EVALUATOR).');
 
-    // Validar docente (prioriza USERS, fallback a TEACHERS)
-    var teacher = SheetsRepository.find('USERS', 'user_id', String(dto.teacherId || '')) || SheetsRepository.find('TEACHERS', 'teacher_id', String(dto.teacherId || ''));
+    // Validar docente (prioriza USERS, fallback a TEACHERS por teacher_id o user_id)
+    var teacher = SheetsRepository.find('USERS', 'user_id', String(dto.teacherId || '')) ||
+                  SheetsRepository.find('TEACHERS', 'teacher_id', String(dto.teacherId || '')) ||
+                  SheetsRepository.find('TEACHERS', 'user_id', String(dto.teacherId || ''));
     if (!teacher || (activating && String(teacher.active).toLowerCase() === 'false')) throw AppErrors.validation('El docente no existe o está inactivo.');
     var tchId = String(teacher.teacher_id || teacher.user_id);
 
@@ -221,6 +223,9 @@ var AdminService = (function () {
     try { users = SheetsRepository.all('USERS'); } catch (e) { console.warn('USERS unavailable: ' + e.message); }
     try { institutions = SheetsRepository.all('INSTITUTIONS'); } catch (e) { console.warn('INSTITUTIONS unavailable: ' + e.message); }
     try { assignments = SheetsRepository.all('EVALUATOR_ASSIGNMENTS'); } catch (e) { console.warn('EVALUATOR_ASSIGNMENTS unavailable: ' + e.message); }
+    var rawTeachers = [];
+    try { rawTeachers = SheetsRepository.all('TEACHERS'); } catch (e) {}
+
     teachers = users.map(function (u) {
       return {
         teacher_id: u.user_id,
@@ -235,11 +240,53 @@ var AdminService = (function () {
         user_id: u.user_id
       };
     });
+
+    var userMap = {};
+    users.forEach(function (u) {
+      if (u.user_id) userMap[String(u.user_id)] = u;
+      if (u.teacher_id) userMap[String(u.teacher_id)] = u;
+    });
+    rawTeachers.forEach(function (t) {
+      if (t.teacher_id) userMap[String(t.teacher_id)] = t;
+      if (t.user_id) userMap[String(t.user_id)] = t;
+    });
+    teachers.forEach(function (t) {
+      if (t.teacher_id) userMap[String(t.teacher_id)] = t;
+      if (t.user_id) userMap[String(t.user_id)] = t;
+    });
+
+    var enrichedAssignments = (assignments || []).map(function (a) {
+      var ev = userMap[String(a.evaluator_user_id)] || {};
+      var co = a.co_evaluator_user_id ? (userMap[String(a.co_evaluator_user_id)] || {}) : null;
+      var tch = userMap[String(a.teacher_id)] || {};
+      var tchName = tch.full_name || tch.display_name || (tch.email ? tch.email.split('@')[0] : '') || a.teacher_id;
+      var evName = ev.display_name || ev.full_name || (ev.email ? ev.email.split('@')[0] : '') || a.evaluator_user_id;
+      var coName = co ? (co.display_name || co.full_name || (co.email ? co.email.split('@')[0] : '') || a.co_evaluator_user_id) : '';
+      return {
+        assignment_id: a.assignment_id,
+        evaluator_user_id: a.evaluator_user_id,
+        evaluator_name: evName,
+        evaluator_position: ev.position || '',
+        co_evaluator_user_id: a.co_evaluator_user_id || '',
+        co_evaluator_name: coName,
+        co_evaluator_position: co ? (co.position || '') : '',
+        teacher_id: a.teacher_id,
+        teacher_name: tchName,
+        teacher_position: tch.position || 'Docente',
+        planned_date: a.planned_date || a.effective_from || '',
+        effective_from: a.effective_from || '',
+        effective_to: a.effective_to || '',
+        active: a.active,
+        created_at: a.created_at,
+        created_by: a.created_by
+      };
+    });
+
     return {
       users: users || [],
       teachers: teachers || [],
       institutions: institutions || [],
-      assignments: assignments || [],
+      assignments: enrichedAssignments,
       audit: []
     };
   }

@@ -31,6 +31,7 @@ function apiReopenVisit(payload){return ApiController.invoke(function(p,r){retur
 function apiAnnulVisit(payload){return ApiController.invoke(function(p,r){return FinalizationService.annul(p.visitId,p.reason,r);},payload);}
 function apiGenerateDocument(payload){return ApiController.invoke(function(p,r){return DocumentService.generate(p.visitId,p.type,p,r);},payload);}
 function apiListDocuments(payload){return ApiController.invoke(function(p){return DocumentService.list(p.visitId);},payload);}
+function apiDownloadDocument(payload){return ApiController.invoke(function(p){return DocumentService.getBlob(p.visitId,p.type);},payload);}
 function apiGenerateAiDraft(payload){return ApiController.invoke(function(p,r){return AiDraftService.draft(p.visitId,r);},payload);}
 function apiAcceptAiDraft(payload){return ApiController.invoke(function(p,r){return AiDraftService.accept(p.aiRequestId,p.humanEdited,r);},payload);}
 function apiAdminData(){return ApiController.invoke(function(){return AdminService.data();});}

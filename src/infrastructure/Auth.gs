@@ -108,10 +108,20 @@ var Auth = (function () {
     if (userRoles.indexOf('ADMIN') >= 0) return true;
     var canEval = ['DIRECTIVE', 'EVALUATOR'].some(function (r) { return userRoles.indexOf(r) >= 0; });
     if (!canEval) return false;
+    var tchIds = {};
+    if (teacher.teacher_id) tchIds[String(teacher.teacher_id)] = true;
+    if (teacher.user_id) tchIds[String(teacher.user_id)] = true;
+    if (!teacher.teacher_id && teacher.user_id) {
+      var tRec = SheetsRepository.find('TEACHERS', 'user_id', String(teacher.user_id));
+      if (tRec && tRec.teacher_id) tchIds[String(tRec.teacher_id)] = true;
+    } else if (teacher.teacher_id && !teacher.user_id) {
+      var tRec2 = SheetsRepository.find('TEACHERS', 'teacher_id', String(teacher.teacher_id));
+      if (tRec2 && tRec2.user_id) tchIds[String(tRec2.user_id)] = true;
+    }
     return SheetsRepository.filter('EVALUATOR_ASSIGNMENTS', function (row) {
       return String(row.active).toLowerCase() !== 'false' &&
         (String(row.evaluator_user_id) === String(user.user_id) || String(row.co_evaluator_user_id) === String(user.user_id)) &&
-        (String(row.teacher_id) === String(teacher.teacher_id) || String(row.teacher_id) === String(teacher.user_id));
+        !!tchIds[String(row.teacher_id)];
     }).length > 0;
   }
   function assertCanCreate(user, teacher, visitDate) {

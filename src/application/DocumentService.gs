@@ -7,10 +7,13 @@ var DocumentService = (function () {
     if(TYPES.indexOf(type)<0)throw AppErrors.validation('Tipo de documento inválido.');
     var actor=Auth.current(),visit=VisitService.raw(visitId);Auth.assertVisit(actor,visit,false);if([VisitState.values.FINALIZED,VisitState.values.DOCUMENTS].indexOf(visit.status)<0)throw AppErrors.validation('Finalice la evaluación antes de generar documentos.');
     var config=AppConfig.validate(),snapshotRow=snapshot_(visitId,visit.data_version),idempotency=[visitId,visit.data_version,type,config.templateVersion,snapshotRow.snapshot_hash,force?Utilities.getUuid():''].join('|');
+    function ensureSharing_(f){if(!f||!f.setSharing)return;try{f.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);}catch(e){try{f.setSharing(DriveApp.Access.DOMAIN_WITH_LINK,DriveApp.Permission.VIEW);}catch(e2){}}}
     var existing=SheetsRepository.filter('DOCUMENTS',function(d){return d.visit_id===visitId&&Number(d.data_version)===Number(visit.data_version)&&d.document_type===type&&d.template_version===config.templateVersion&&d.snapshot_hash===snapshotRow.snapshot_hash&&d.status==='READY'&&!d.superseded_at;})[0];
     if(!force&&existing){
       try{
-        var existingUrl=DriveApp.getFileById(existing.drive_file_id).getUrl();
+        var existingFile=DriveApp.getFileById(existing.drive_file_id);
+        ensureSharing_(existingFile);
+        var existingUrl=existingFile.getUrl();
         if(visit.status===VisitState.values.FINALIZED){
           visit.status=VisitState.values.DOCUMENTS;
           visit.row_version=Number(visit.row_version)+1;
@@ -29,7 +32,8 @@ var DocumentService = (function () {
       var readyTypes=SheetsRepository.filter('DOCUMENTS',function(d){return d.visit_id===visitId&&Number(d.data_version)===Number(visit.data_version)&&d.status==='READY'&&!d.superseded_at;}).map(function(d){return d.document_type;});if(readyTypes.indexOf('FULL_PACKAGE')>=0||TYPES.every(function(t){return readyTypes.indexOf(t)>=0;})){visit.status=VisitState.values.DOCUMENTS;visit.row_version=Number(visit.row_version)+1;SheetsRepository.upsert('VISITS',['visit_id'],visit);}return Object.assign({},record,{url:file.getUrl(),reused:false});
     }catch(e){job.status='ERROR';job.completed_at=JsonUtil.now();job.last_error_code=e.code||'DOCUMENT_ERROR';SheetsRepository.upsert('DOCUMENT_JOBS',['idempotency_key'],job);Audit.write(actor,'DOCUMENT_FAILED','VISIT',visitId,visit.data_version,requestId,'ERROR','Falló generación documental',{type:type,code:job.last_error_code});throw e.code?e:AppErrors.document();}
   }
-  function list(visitId){var actor=Auth.current(),visit=VisitService.raw(visitId);Auth.assertVisit(actor,visit,false);return SheetsRepository.filter('DOCUMENTS',function(d){return d.visit_id===visitId&&!d.superseded_at&&d.status==='READY';}).map(function(d){if(d.drive_file_id){try{d.url=DriveApp.getFileById(d.drive_file_id).getUrl();}catch(e){d.url='https://drive.google.com/file/d/'+d.drive_file_id+'/view';}}return d;});}
-  return {generate:generate,list:list,types:TYPES};
+  function list(visitId){var actor=Auth.current(),visit=VisitService.raw(visitId);Auth.assertVisit(actor,visit,false);return SheetsRepository.filter('DOCUMENTS',function(d){return d.visit_id===visitId&&!d.superseded_at&&d.status==='READY';}).map(function(d){if(d.drive_file_id){try{var f=DriveApp.getFileById(d.drive_file_id);if(f&&f.setSharing){try{f.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);}catch(e){try{f.setSharing(DriveApp.Access.DOMAIN_WITH_LINK,DriveApp.Permission.VIEW);}catch(e2){}}}d.url=f.getUrl();}catch(e){d.url='https://drive.google.com/file/d/'+d.drive_file_id+'/view';}}return d;});}
+  function getBlob(visitId,type){var actor=Auth.current(),visit=VisitService.raw(visitId);Auth.assertVisit(actor,visit,false);var doc=SheetsRepository.filter('DOCUMENTS',function(d){return d.visit_id===visitId&&d.document_type===type&&d.status==='READY'&&!d.superseded_at;})[0];if(!doc||!doc.drive_file_id)throw AppErrors.document('El documento solicitado no existe o aún no ha sido generado.');var file=DriveApp.getFileById(doc.drive_file_id);if(file&&file.setSharing){try{file.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);}catch(e){try{file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK,DriveApp.Permission.VIEW);}catch(e2){}}}var bytes=file.getBlob().getBytes();return {fileName:doc.file_name||file.getName()||'Expediente.pdf',mimeType:'application/pdf',base64:Utilities.base64Encode(bytes)};}
+  return {generate:generate,list:list,getBlob:getBlob,types:TYPES};
 })();
 

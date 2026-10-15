@@ -40,3 +40,12 @@ test('el catálogo del evaluador contiene solo sus docentes asignados',()=>{
   const result=context.CatalogService.getAll();
   assert.deepEqual(Array.from(result.teachers,t=>t.teacher_id),['teacher-1']);
 });
+
+test('CatalogService enriquece assignments con nombres de evaluador y docente',()=>{
+  const result=context.CatalogService.getAll();
+  assert.equal(result.assignments.length, 1);
+  assert.equal(result.assignments[0].teacher_id, 'teacher-1');
+  assert.ok(result.assignments[0].evaluator_name);
+  assert.ok(result.assignments[0].teacher_name);
+});
+

@@ -133,12 +133,14 @@ var DocsGateway = (function () {
     };
   }
 
-  function styleCell_(cell, bgColor, align, isBold, fontSize, textColor) {
+  function styleCell_(cell, bgColor, align, isBold, fontSize, textColor, padV, padH) {
     if (bgColor) cell.setBackgroundColor(bgColor);
-    cell.setPaddingTop(3);
-    cell.setPaddingBottom(3);
-    cell.setPaddingLeft(4);
-    cell.setPaddingRight(4);
+    var pv = (padV != null) ? padV : 2.5;
+    var ph = (padH != null) ? padH : 3.5;
+    cell.setPaddingTop(pv);
+    cell.setPaddingBottom(pv);
+    cell.setPaddingLeft(ph);
+    cell.setPaddingRight(ph);
     var numChildren = cell.getNumChildren();
     for (var i = 0; i < numChildren; i++) {
       var child = cell.getChild(i);
@@ -151,6 +153,61 @@ var DocsGateway = (function () {
         if (isBold != null) t.setBold(isBold);
         if (textColor) t.setForegroundColor(textColor);
       }
+    }
+  }
+
+  function formatCell_(cell, fontSize, isBold, textColor, align, padV, padH) {
+    var pv = (padV != null) ? padV : 2.5;
+    var ph = (padH != null) ? padH : 3.5;
+    cell.setPaddingTop(pv);
+    cell.setPaddingBottom(pv);
+    cell.setPaddingLeft(ph);
+    cell.setPaddingRight(ph);
+    var num = cell.getNumChildren();
+    for (var i = 0; i < num; i++) {
+      var child = cell.getChild(i);
+      if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
+        var p = child.asParagraph();
+        if (align != null) p.setAlignment(align);
+        var t = p.editAsText();
+        t.setFontFamily('Arial');
+        if (fontSize) t.setFontSize(fontSize);
+        if (isBold != null) t.setBold(isBold);
+        if (textColor) t.setForegroundColor(textColor);
+      }
+    }
+  }
+
+  function formatLabelValueCell_(cell, fontSize) {
+    var sz = fontSize || 7.5;
+    cell.setPaddingTop(2).setPaddingBottom(2).setPaddingLeft(3).setPaddingRight(3);
+    var num = cell.getNumChildren();
+    for (var i = 0; i < num; i++) {
+      var child = cell.getChild(i);
+      if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
+        var p = child.asParagraph();
+        var t = p.editAsText();
+        t.setFontFamily('Arial');
+        t.setFontSize(sz);
+        t.setForegroundColor('#000000');
+        if (i === 0) {
+          t.setBold(true);
+        } else {
+          t.setBold(false);
+        }
+      }
+    }
+  }
+
+  function appendSpacer_(body, pt) {
+    try {
+      var p = body.appendParagraph('');
+      if (p.setFontSize) p.setFontSize(pt || 2);
+      if (p.setSpacingBefore) p.setSpacingBefore(0);
+      if (p.setSpacingAfter) p.setSpacingAfter(pt || 2);
+      return p;
+    } catch (e) {
+      return body.appendParagraph('');
     }
   }
 
@@ -310,7 +367,8 @@ var DocsGateway = (function () {
 
     try {
       var pDivider = body.appendParagraph('');
-      if (pDivider.setSpacingAfter) pDivider.setSpacingAfter(4);
+      if (pDivider.setFontSize) pDivider.setFontSize(2);
+      if (pDivider.setSpacingAfter) pDivider.setSpacingAfter(2);
       if (pDivider.setSpacingBefore) pDivider.setSpacingBefore(0);
     } catch (e) {}
   }
@@ -323,14 +381,14 @@ var DocsGateway = (function () {
     table.setBorderWidth(0.5);
     var cell = table.getCell(0, 0);
     cell.setBackgroundColor(DocColors.PURPLE_DARK);
-    cell.setPaddingTop(5);
-    cell.setPaddingBottom(5);
+    cell.setPaddingTop(3.5);
+    cell.setPaddingBottom(3.5);
     var p = cell.getChild(0).asParagraph();
     p.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
     var t = p.editAsText();
     t.setForegroundColor('#FFFFFF');
     t.setFontFamily('Arial');
-    t.setFontSize(10.5);
+    t.setFontSize(10);
     t.setBold(true);
     cell.setWidth(540);
   }
@@ -341,14 +399,14 @@ var DocsGateway = (function () {
     table.setBorderWidth(0.5);
     var cell = table.getCell(0, 0);
     cell.setBackgroundColor(bgColor || DocColors.GRAY_HEADER);
-    cell.setPaddingTop(4);
-    cell.setPaddingBottom(4);
+    cell.setPaddingTop(2.5);
+    cell.setPaddingBottom(2.5);
     var p = cell.getChild(0).asParagraph();
     p.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
     var t = p.editAsText();
     t.setForegroundColor(textColor || '#000000');
     t.setFontFamily('Arial');
-    t.setFontSize(9);
+    t.setFontSize(8.5);
     t.setBold(true);
     cell.setWidth(540);
   }
@@ -358,9 +416,9 @@ var DocsGateway = (function () {
     hRow.appendTableCell('CRITERIOS GENERALES\nEstos criterios se relacionan con los tres momentos de los procesos de enseñanza y aprendizaje (excepto el criterio No 1)');
     hRow.appendTableCell('Totalmente de acuerdo');
     hRow.appendTableCell('En desacuerdo\n(Argumente la respuesta)');
-    styleCell_(hRow.getCell(0), DocColors.GRAY_HEADER, DocumentApp.HorizontalAlignment.LEFT, true, 8, '#000000');
-    styleCell_(hRow.getCell(1), DocColors.GRAY_HEADER, DocumentApp.HorizontalAlignment.CENTER, true, 8, '#000000');
-    styleCell_(hRow.getCell(2), DocColors.GRAY_HEADER, DocumentApp.HorizontalAlignment.CENTER, true, 8, '#000000');
+    styleCell_(hRow.getCell(0), DocColors.GRAY_HEADER, DocumentApp.HorizontalAlignment.LEFT, true, 7.5, '#000000', 2, 3);
+    styleCell_(hRow.getCell(1), DocColors.GRAY_HEADER, DocumentApp.HorizontalAlignment.CENTER, true, 7.5, '#000000', 2, 3);
+    styleCell_(hRow.getCell(2), DocColors.GRAY_HEADER, DocumentApp.HorizontalAlignment.CENTER, true, 7.5, '#000000', 2, 3);
     hRow.getCell(0).setWidth(300);
     hRow.getCell(1).setWidth(100);
     hRow.getCell(2).setWidth(140);
@@ -377,9 +435,9 @@ var DocsGateway = (function () {
       row.appendTableCell(cText);
       row.appendTableCell(cAgree);
       row.appendTableCell(cDisagree);
-      styleCell_(row.getCell(0), null, DocumentApp.HorizontalAlignment.LEFT, false, 7.5, '#000000');
-      styleCell_(row.getCell(1), null, DocumentApp.HorizontalAlignment.CENTER, r.result === 'FULLY_AGREE', 8, '#000000');
-      styleCell_(row.getCell(2), null, DocumentApp.HorizontalAlignment.LEFT, r.result === 'DISAGREE', 7.5, '#000000');
+      styleCell_(row.getCell(0), null, DocumentApp.HorizontalAlignment.LEFT, false, 7, '#000000', 2, 3);
+      styleCell_(row.getCell(1), null, DocumentApp.HorizontalAlignment.CENTER, r.result === 'FULLY_AGREE', 7.5, '#000000', 2, 3);
+      styleCell_(row.getCell(2), null, DocumentApp.HorizontalAlignment.LEFT, false, 7, '#000000', 2, 3);
       row.getCell(0).setWidth(300);
       row.getCell(1).setWidth(100);
       row.getCell(2).setWidth(140);
@@ -395,7 +453,7 @@ var DocsGateway = (function () {
     hRow.appendTableCell('NO APLICA');
     hRow.appendTableCell('OBSERVACIÓN');
     for (var c = 0; c < 6; c++) {
-      styleCell_(hRow.getCell(c), DocColors.PURPLE_LIGHT, DocumentApp.HorizontalAlignment.CENTER, true, 7.5, '#000000');
+      styleCell_(hRow.getCell(c), DocColors.PURPLE_LIGHT, DocumentApp.HorizontalAlignment.CENTER, true, 7.5, '#000000', 2, 3);
     }
     hRow.getCell(0).setWidth(180);
     hRow.getCell(1).setWidth(55);
@@ -414,7 +472,7 @@ var DocsGateway = (function () {
       sRow.appendTableCell('');
       sRow.appendTableCell('');
       for (var k = 0; k < 6; k++) {
-        styleCell_(sRow.getCell(k), DocColors.PURPLE_MID, DocumentApp.HorizontalAlignment.LEFT, true, 8, '#FFFFFF');
+        styleCell_(sRow.getCell(k), DocColors.PURPLE_MID, DocumentApp.HorizontalAlignment.LEFT, true, 7.5, '#FFFFFF', 2, 3);
       }
 
       m.criteria.forEach(function (num) {
@@ -429,12 +487,12 @@ var DocsGateway = (function () {
         row.appendTableCell(r.level === 'NOT_APPLICABLE' ? '[ X ]' : '[   ]');
         row.appendTableCell(r.observation || '');
 
-        styleCell_(row.getCell(0), null, DocumentApp.HorizontalAlignment.LEFT, true, 7, '#000000');
-        styleCell_(row.getCell(1), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'ACHIEVED', 7.5, '#000000');
-        styleCell_(row.getCell(2), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'IN_PROGRESS', 7.5, '#000000');
-        styleCell_(row.getCell(3), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'BEGINNING', 7.5, '#000000');
-        styleCell_(row.getCell(4), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'NOT_APPLICABLE', 7.5, '#000000');
-        styleCell_(row.getCell(5), null, DocumentApp.HorizontalAlignment.LEFT, false, 7, '#000000');
+        styleCell_(row.getCell(0), null, DocumentApp.HorizontalAlignment.LEFT, true, 6.8, '#000000', 1.8, 3);
+        styleCell_(row.getCell(1), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'ACHIEVED', 7.2, '#000000', 1.8, 3);
+        styleCell_(row.getCell(2), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'IN_PROGRESS', 7.2, '#000000', 1.8, 3);
+        styleCell_(row.getCell(3), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'BEGINNING', 7.2, '#000000', 1.8, 3);
+        styleCell_(row.getCell(4), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'NOT_APPLICABLE', 7.2, '#000000', 1.8, 3);
+        styleCell_(row.getCell(5), null, DocumentApp.HorizontalAlignment.LEFT, false, 6.8, '#000000', 1.8, 3);
 
         row.getCell(0).setWidth(180);
         row.getCell(1).setWidth(55);
@@ -454,7 +512,7 @@ var DocsGateway = (function () {
     hRow.appendTableCell('EN INICIO');
     hRow.appendTableCell('No aplica\na la clase observada');
     for (var c = 0; c < 5; c++) {
-      styleCell_(hRow.getCell(c), DocColors.PURPLE_LIGHT, DocumentApp.HorizontalAlignment.CENTER, true, 7.5, '#000000');
+      styleCell_(hRow.getCell(c), DocColors.PURPLE_LIGHT, DocumentApp.HorizontalAlignment.CENTER, true, 7.5, '#000000', 2, 3);
     }
     hRow.getCell(0).setWidth(110);
     hRow.getCell(1).setWidth(135);
@@ -471,7 +529,7 @@ var DocsGateway = (function () {
       sRow.appendTableCell('');
       sRow.appendTableCell('');
       for (var k = 0; k < 5; k++) {
-        styleCell_(sRow.getCell(k), DocColors.PURPLE_MID, DocumentApp.HorizontalAlignment.LEFT, true, 8, '#FFFFFF');
+        styleCell_(sRow.getCell(k), DocColors.PURPLE_MID, DocumentApp.HorizontalAlignment.LEFT, true, 7.5, '#FFFFFF', 2, 3);
       }
 
       m.criteria.forEach(function (num) {
@@ -488,9 +546,9 @@ var DocsGateway = (function () {
         var begMark = r.level === 'BEGINNING' ? '[ X ]' : '[   ]';
         var naMark = r.level === 'NOT_APPLICABLE' ? '[ X ]' : '[   ]';
 
-        var achText = (descAchieved ? descAchieved + '\n\n' : '') + achMark;
-        var progText = (descInProgress ? descInProgress + '\n\n' : '') + progMark;
-        var begText = (descBeginning ? descBeginning + '\n\n' : '') + begMark;
+        var achText = (descAchieved ? descAchieved + '\n' : '') + achMark;
+        var progText = (descInProgress ? descInProgress + '\n' : '') + progMark;
+        var begText = (descBeginning ? descBeginning + '\n' : '') + begMark;
         var naText = naMark;
 
         var row = table.appendTableRow();
@@ -500,11 +558,11 @@ var DocsGateway = (function () {
         row.appendTableCell(begText);
         row.appendTableCell(naText);
 
-        styleCell_(row.getCell(0), null, DocumentApp.HorizontalAlignment.LEFT, true, 7, '#000000');
-        styleCell_(row.getCell(1), null, DocumentApp.HorizontalAlignment.LEFT, false, 7, '#000000');
-        styleCell_(row.getCell(2), null, DocumentApp.HorizontalAlignment.LEFT, false, 7, '#000000');
-        styleCell_(row.getCell(3), null, DocumentApp.HorizontalAlignment.LEFT, false, 7, '#000000');
-        styleCell_(row.getCell(4), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'NOT_APPLICABLE', 7.5, '#000000');
+        styleCell_(row.getCell(0), null, DocumentApp.HorizontalAlignment.LEFT, true, 6.8, '#000000', 1.8, 3);
+        styleCell_(row.getCell(1), null, DocumentApp.HorizontalAlignment.LEFT, false, 6.8, '#000000', 1.8, 3);
+        styleCell_(row.getCell(2), null, DocumentApp.HorizontalAlignment.LEFT, false, 6.8, '#000000', 1.8, 3);
+        styleCell_(row.getCell(3), null, DocumentApp.HorizontalAlignment.LEFT, false, 6.8, '#000000', 1.8, 3);
+        styleCell_(row.getCell(4), null, DocumentApp.HorizontalAlignment.CENTER, r.level === 'NOT_APPLICABLE', 7, '#000000', 1.8, 2);
 
         row.getCell(0).setWidth(110);
         row.getCell(1).setWidth(135);
@@ -525,7 +583,7 @@ var DocsGateway = (function () {
 
     var ev1Clean = cleanName_(rawEv1);
     var teacherClean = cleanName_(rawTeacher);
-    var coClean = rawCo ? cleanName_(rawCo) : '';
+    var co = rawCo ? cleanName_(rawCo) : '';
 
     var cols = rawCo ? 3 : 2;
     var colWidth = rawCo ? 180 : 270;
@@ -535,7 +593,7 @@ var DocsGateway = (function () {
     hRow.appendTableCell('');
     if (rawCo) hRow.appendTableCell('');
     for (var i = 0; i < cols; i++) {
-      styleCell_(hRow.getCell(i), DocColors.GRAY_HEADER, DocumentApp.HorizontalAlignment.CENTER, true, 8.5, '#000000');
+      styleCell_(hRow.getCell(i), DocColors.GRAY_HEADER, DocumentApp.HorizontalAlignment.CENTER, true, 8, '#000000', 2, 3);
       hRow.getCell(i).setWidth(colWidth);
     }
 
@@ -549,13 +607,13 @@ var DocsGateway = (function () {
       rRoles.appendTableCell('DOCENTE');
     }
     for (var j = 0; j < cols; j++) {
-      styleCell_(rRoles.getCell(j), null, DocumentApp.HorizontalAlignment.CENTER, true, 8, '#000000');
+      styleCell_(rRoles.getCell(j), null, DocumentApp.HorizontalAlignment.CENTER, true, 7.5, '#000000', 2, 3);
       rRoles.getCell(j).setWidth(colWidth);
     }
 
     var rSign = table.appendTableRow();
     if (rSign.setMinimumHeight) {
-      try { rSign.setMinimumHeight(60); } catch (e) {}
+      try { rSign.setMinimumHeight(40); } catch (e) {}
     }
     if (rawCo) {
       rSign.appendTableCell('');
@@ -566,7 +624,7 @@ var DocsGateway = (function () {
       rSign.appendTableCell('');
     }
     for (var s = 0; s < cols; s++) {
-      styleCell_(rSign.getCell(s), null, DocumentApp.HorizontalAlignment.CENTER, false, 7.5, '#666666');
+      styleCell_(rSign.getCell(s), null, DocumentApp.HorizontalAlignment.CENTER, false, 7, '#666666', 2, 3);
       rSign.getCell(s).setWidth(colWidth);
     }
 
@@ -580,7 +638,7 @@ var DocsGateway = (function () {
       rNames.appendTableCell('NOMBRE: ' + teacherClean);
     }
     for (var n = 0; n < cols; n++) {
-      styleCell_(rNames.getCell(n), null, DocumentApp.HorizontalAlignment.LEFT, true, 8, '#000000');
+      styleCell_(rNames.getCell(n), null, DocumentApp.HorizontalAlignment.LEFT, true, 7.5, '#000000', 2, 3);
       rNames.getCell(n).setWidth(colWidth);
     }
   }
@@ -601,9 +659,7 @@ var DocsGateway = (function () {
       var row = infoTable.getRow(r);
       for (var c = 0; c < row.getNumCells(); c++) {
         var cell = row.getCell(c);
-        cell.setPaddingTop(4).setPaddingBottom(4).setPaddingLeft(5).setPaddingRight(5);
-        var p = cell.getChild(0).asParagraph();
-        p.setFontFamily('Arial').setFontSize(8.5);
+        formatCell_(cell, 8, false, '#000000', DocumentApp.HorizontalAlignment.LEFT, 2.5, 2.5, 4, 4);
       }
       row.getCell(0).setWidth(330);
       row.getCell(1).setWidth(210);
@@ -616,9 +672,12 @@ var DocsGateway = (function () {
     objTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
     for (var ro = 0; ro < objTable.getNumRows(); ro++) {
       var cObj = objTable.getRow(ro).getCell(0);
-      cObj.setPaddingTop(4).setPaddingBottom(4).setPaddingLeft(5).setPaddingRight(5);
-      var pObj = cObj.getChild(0).asParagraph();
-      pObj.setFontFamily('Arial').setFontSize(8).setItalic(true);
+      formatCell_(cObj, 7.5, false, '#000000', DocumentApp.HorizontalAlignment.LEFT, 2.5, 2.5, 4, 4);
+      for (var io = 0; io < cObj.getNumChildren(); io++) {
+        if (cObj.getChild(io).getType() === DocumentApp.ElementType.PARAGRAPH) {
+          cObj.getChild(io).asParagraph().setItalic(true);
+        }
+      }
       cObj.setWidth(540);
     }
 
@@ -629,14 +688,13 @@ var DocsGateway = (function () {
     ]);
     textTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
     if (textTable.getRow(0).setMinimumHeight) {
-      try { textTable.getRow(0).setMinimumHeight(240); } catch (e) {}
+      try { textTable.getRow(0).setMinimumHeight(180); } catch (e) {}
     }
     var cNarr = textTable.getCell(0, 0);
-    cNarr.setPaddingTop(6).setPaddingBottom(6).setPaddingLeft(6).setPaddingRight(6);
-    cNarr.getChild(0).asParagraph().setFontFamily('Arial').setFontSize(8.5);
+    formatCell_(cNarr, 8.5, false, '#000000', DocumentApp.HorizontalAlignment.LEFT, 4, 4, 5, 5);
     cNarr.setWidth(540);
 
-    body.appendParagraph('');
+    appendSpacer_(body, 2);
     var sigTable = body.appendTable();
     sigTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
     buildSignaturesTable_(sigTable, snapshot);
@@ -666,8 +724,7 @@ var DocsGateway = (function () {
     var colWidthsInst = [140, 80, 45, 55, 50, 105, 65];
     for (var c1 = 0; c1 < 7; c1++) {
       var cell1 = tableInst.getRow(0).getCell(c1);
-      cell1.setPaddingTop(3).setPaddingBottom(3).setPaddingLeft(3).setPaddingRight(3);
-      cell1.getChild(0).asParagraph().setFontFamily('Arial').setFontSize(7.5);
+      formatLabelValueCell_(cell1, 7.5);
       cell1.setWidth(colWidthsInst[c1]);
     }
 
@@ -686,8 +743,7 @@ var DocsGateway = (function () {
     var colWidthsDoc = [150, 125, 90, 95, 80];
     for (var c2 = 0; c2 < 5; c2++) {
       var cell2 = tableDoc.getRow(0).getCell(c2);
-      cell2.setPaddingTop(3).setPaddingBottom(3).setPaddingLeft(3).setPaddingRight(3);
-      cell2.getChild(0).asParagraph().setFontFamily('Arial').setFontSize(7.5);
+      formatLabelValueCell_(cell2, 7.5);
       cell2.setWidth(colWidthsDoc[c2]);
     }
 
@@ -704,8 +760,7 @@ var DocsGateway = (function () {
     var colWidthsGrade = [150, 70, 160, 160];
     for (var c3 = 0; c3 < 4; c3++) {
       var cell3 = tableGrade.getRow(0).getCell(c3);
-      cell3.setPaddingTop(3).setPaddingBottom(3).setPaddingLeft(3).setPaddingRight(3);
-      cell3.getChild(0).asParagraph().setFontFamily('Arial').setFontSize(7.5);
+      formatLabelValueCell_(cell3, 7.5);
       cell3.setWidth(colWidthsGrade[c3]);
     }
 
@@ -716,30 +771,35 @@ var DocsGateway = (function () {
     objTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
     for (var ro = 0; ro < objTable.getNumRows(); ro++) {
       var cObj = objTable.getRow(ro).getCell(0);
-      cObj.setPaddingTop(3).setPaddingBottom(3).setPaddingLeft(4).setPaddingRight(4);
-      var pObjCell = cObj.getChild(0).asParagraph();
-      pObjCell.setFontFamily('Arial').setFontSize(7.5);
-      if (ro === 0) pObjCell.setBold(true);
-      if (ro === 1) pObjCell.setItalic(true);
+      formatCell_(cObj, 7.5, ro === 0, '#000000', DocumentApp.HorizontalAlignment.LEFT, 2.5, 2.5, 4, 4);
+      if (ro === 1) {
+        for (var ic = 0; ic < cObj.getNumChildren(); ic++) {
+          if (cObj.getChild(ic).getType() === DocumentApp.ElementType.PARAGRAPH) {
+            cObj.getChild(ic).asParagraph().setItalic(true);
+          }
+        }
+      }
       cObj.setWidth(540);
     }
 
-    body.appendParagraph('');
+    appendSpacer_(body, 2);
     var genTable = body.appendTable();
     genTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
     buildGeneralCriteriaTable_(genTable, snapshot);
 
-    body.appendParagraph('');
+    appendSpacer_(body, 2);
     appendSectionHeader_(body, 'PROCESOS DE ENSEÑANZA Y APRENDIZAJE', DocColors.GRAY_HEADER);
 
     var pInst2 = body.appendParagraph('INSTRUCCIONES: Marque una x en el casillero que corresponda a su conformidad con alguno de los criterios enunciados.');
-    pInst2.setFontFamily('Arial').setFontSize(7.5).setItalic(true);
+    pInst2.setFontFamily('Arial').setFontSize(7).setItalic(true);
+    if (pInst2.setSpacingBefore) pInst2.setSpacingBefore(1);
+    if (pInst2.setSpacingAfter) pInst2.setSpacingAfter(2);
 
     var rubTable = body.appendTable();
     rubTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
     buildAnnex2RubricTable_(rubTable, snapshot);
 
-    body.appendParagraph('');
+    appendSpacer_(body, 2);
     var sigTable = body.appendTable();
     sigTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
     buildSignaturesTable_(sigTable, snapshot);
@@ -757,20 +817,23 @@ var DocsGateway = (function () {
     objTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
     for (var ro = 0; ro < objTable.getNumRows(); ro++) {
       var cObj = objTable.getRow(ro).getCell(0);
-      cObj.setPaddingTop(3).setPaddingBottom(3).setPaddingLeft(4).setPaddingRight(4);
-      var pObjCell = cObj.getChild(0).asParagraph();
-      pObjCell.setFontFamily('Arial').setFontSize(7.5);
-      if (ro === 0) pObjCell.setBold(true);
-      if (ro === 1) pObjCell.setItalic(true);
+      formatCell_(cObj, 7.5, ro === 0, '#000000', DocumentApp.HorizontalAlignment.LEFT, 2.5, 2.5, 4, 4);
+      if (ro === 1) {
+        for (var ic = 0; ic < cObj.getNumChildren(); ic++) {
+          if (cObj.getChild(ic).getType() === DocumentApp.ElementType.PARAGRAPH) {
+            cObj.getChild(ic).asParagraph().setItalic(true);
+          }
+        }
+      }
       cObj.setWidth(540);
     }
 
-    body.appendParagraph('');
+    appendSpacer_(body, 2);
     var rubTable = body.appendTable();
     rubTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
     buildAnnex3RubricTable_(rubTable, snapshot);
 
-    body.appendParagraph('');
+    appendSpacer_(body, 2);
     var sigTable = body.appendTable();
     sigTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
     buildSignaturesTable_(sigTable, snapshot);
@@ -788,17 +851,16 @@ var DocsGateway = (function () {
     objTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
     for (var ro = 0; ro < objTable.getNumRows(); ro++) {
       var cObj = objTable.getRow(ro).getCell(0);
-      cObj.setPaddingTop(4).setPaddingBottom(4).setPaddingLeft(5).setPaddingRight(5);
-      var pObjCell = cObj.getChild(0).asParagraph();
-      pObjCell.setFontFamily('Arial').setFontSize(8);
-      if (ro === 1) pObjCell.setBold(true);
+      formatCell_(cObj, 7.5, ro === 1, '#000000', DocumentApp.HorizontalAlignment.LEFT, 2.5, 2.5, 4, 4);
       cObj.setWidth(540);
     }
 
     appendSectionHeader_(body, 'ANÁLISIS DEL DESARROLLO DEL PROCESO PEDAGÓGICO', DocColors.GRAY_HEADER);
 
     var pDesc = body.appendParagraph('En el espacio en blanco que se encuentra a continuación redacte brevemente las fortalezas y los aspectos a mejorar evidenciados durante la observación de la clase, que considere relevantes.');
-    pDesc.setFontFamily('Arial').setFontSize(7.5).setItalic(true);
+    pDesc.setFontFamily('Arial').setFontSize(7).setItalic(true);
+    if (pDesc.setSpacingBefore) pDesc.setSpacingBefore(1);
+    if (pDesc.setSpacingAfter) pDesc.setSpacingAfter(2);
 
     var tableAnalysis = body.appendTable([
       ['FORTALEZAS', 'ASPECTOS A MEJORAR'],
@@ -808,16 +870,17 @@ var DocsGateway = (function () {
     tableAnalysis.getRow(0).getCell(0).setBackgroundColor(DocColors.PURPLE_LIGHT);
     tableAnalysis.getRow(0).getCell(1).setBackgroundColor(DocColors.PURPLE_LIGHT);
     if (tableAnalysis.getRow(1).setMinimumHeight) {
-      try { tableAnalysis.getRow(1).setMinimumHeight(130); } catch (e) {}
+      try { tableAnalysis.getRow(1).setMinimumHeight(48); } catch (e) {}
     }
     for (var r1 = 0; r1 < tableAnalysis.getNumRows(); r1++) {
       var row1 = tableAnalysis.getRow(r1);
       for (var c1 = 0; c1 < row1.getNumCells(); c1++) {
         var cell1 = row1.getCell(c1);
-        cell1.setPaddingTop(4).setPaddingBottom(4).setPaddingLeft(5).setPaddingRight(5);
-        var p1 = cell1.getChild(0).asParagraph();
-        p1.setFontFamily('Arial').setFontSize(8);
-        if (r1 === 0) { p1.setAlignment(DocumentApp.HorizontalAlignment.CENTER); p1.setBold(true); }
+        if (r1 === 0) {
+          formatCell_(cell1, 7.5, true, '#000000', DocumentApp.HorizontalAlignment.CENTER, 2.5, 2.5, 4, 4);
+        } else {
+          formatCell_(cell1, 7.5, false, '#000000', DocumentApp.HorizontalAlignment.LEFT, 3, 3, 4, 4);
+        }
         cell1.setWidth(270);
       }
     }
@@ -832,16 +895,17 @@ var DocsGateway = (function () {
     tableCompromisos.getRow(0).getCell(0).setBackgroundColor(DocColors.PURPLE_LIGHT);
     tableCompromisos.getRow(0).getCell(1).setBackgroundColor(DocColors.PURPLE_LIGHT);
     if (tableCompromisos.getRow(1).setMinimumHeight) {
-      try { tableCompromisos.getRow(1).setMinimumHeight(100); } catch (e) {}
+      try { tableCompromisos.getRow(1).setMinimumHeight(45); } catch (e) {}
     }
     for (var r2 = 0; r2 < tableCompromisos.getNumRows(); r2++) {
       var row2 = tableCompromisos.getRow(r2);
       for (var c2 = 0; c2 < row2.getNumCells(); c2++) {
         var cell2 = row2.getCell(c2);
-        cell2.setPaddingTop(4).setPaddingBottom(4).setPaddingLeft(5).setPaddingRight(5);
-        var p2 = cell2.getChild(0).asParagraph();
-        p2.setFontFamily('Arial').setFontSize(8);
-        if (r2 === 0) { p2.setAlignment(DocumentApp.HorizontalAlignment.CENTER); p2.setBold(true); }
+        if (r2 === 0) {
+          formatCell_(cell2, 7.5, true, '#000000', DocumentApp.HorizontalAlignment.CENTER, 2.5, 2.5, 4, 4);
+        } else {
+          formatCell_(cell2, 7.5, false, '#000000', DocumentApp.HorizontalAlignment.LEFT, 3, 3, 4, 4);
+        }
         cell2.setWidth(270);
       }
     }
@@ -853,14 +917,13 @@ var DocsGateway = (function () {
     ]);
     tableObs.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
     if (tableObs.getRow(0).setMinimumHeight) {
-      try { tableObs.getRow(0).setMinimumHeight(70); } catch (e) {}
+      try { tableObs.getRow(0).setMinimumHeight(28); } catch (e) {}
     }
     var cellObs = tableObs.getCell(0, 0);
-    cellObs.setPaddingTop(5).setPaddingBottom(5).setPaddingLeft(5).setPaddingRight(5);
-    cellObs.getChild(0).asParagraph().setFontFamily('Arial').setFontSize(8);
+    formatCell_(cellObs, 7.5, false, '#000000', DocumentApp.HorizontalAlignment.LEFT, 3, 3, 4, 4);
     cellObs.setWidth(540);
 
-    body.appendParagraph('');
+    appendSpacer_(body, 2);
     var sigTable = body.appendTable();
     sigTable.setBorderColor(DocColors.BORDER).setBorderWidth(0.5);
     buildSignaturesTable_(sigTable, snapshot);
@@ -951,6 +1014,13 @@ var DocsGateway = (function () {
     doc.saveAndClose();
     var blob = copy.getAs(MimeType.PDF).setName(outputName);
     var file = DriveApp.getFolderById(outputFolderId).createFile(blob);
+    try {
+      if (file && file.setSharing) file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (e) {
+      try {
+        if (file && file.setSharing) file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (e2) {}
+    }
     copy.setTrashed(true);
     return file;
   }

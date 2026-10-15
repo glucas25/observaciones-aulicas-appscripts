@@ -76,22 +76,31 @@ var CatalogService = (function () {
     try {
       var allAssignments = active_('EVALUATOR_ASSIGNMENTS');
       var userMap = {};
-      users.forEach(function (u) { userMap[u.user_id] = u; });
-      allTeachers.forEach(function (t) { userMap[t.teacher_id] = t; });
+      users.forEach(function (u) {
+        if (u.user_id) userMap[String(u.user_id)] = u;
+        if (u.teacher_id) userMap[String(u.teacher_id)] = u;
+      });
+      allTeachers.forEach(function (t) {
+        if (t.teacher_id) userMap[String(t.teacher_id)] = t;
+        if (t.user_id) userMap[String(t.user_id)] = t;
+      });
       assignments = allAssignments.map(function (a) {
-        var ev = userMap[a.evaluator_user_id] || {};
-        var co = a.co_evaluator_user_id ? (userMap[a.co_evaluator_user_id] || {}) : null;
-        var tch = userMap[a.teacher_id] || {};
+        var ev = userMap[String(a.evaluator_user_id)] || {};
+        var co = a.co_evaluator_user_id ? (userMap[String(a.co_evaluator_user_id)] || {}) : null;
+        var tch = userMap[String(a.teacher_id)] || {};
+        var tchName = tch.full_name || tch.display_name || (tch.email ? tch.email.split('@')[0] : '') || a.teacher_id;
+        var evName = ev.display_name || ev.full_name || (ev.email ? ev.email.split('@')[0] : '') || a.evaluator_user_id;
+        var coName = co ? (co.display_name || co.full_name || (co.email ? co.email.split('@')[0] : '') || a.co_evaluator_user_id) : '';
         return {
           assignment_id: a.assignment_id,
           evaluator_user_id: a.evaluator_user_id,
-          evaluator_name: ev.display_name || ev.full_name || a.evaluator_user_id,
+          evaluator_name: evName,
           evaluator_position: ev.position || '',
           co_evaluator_user_id: a.co_evaluator_user_id || '',
-          co_evaluator_name: co ? (co.display_name || co.full_name || a.co_evaluator_user_id) : '',
+          co_evaluator_name: coName,
           co_evaluator_position: co ? (co.position || '') : '',
           teacher_id: a.teacher_id,
-          teacher_name: tch.full_name || tch.display_name || a.teacher_id,
+          teacher_name: tchName,
           teacher_position: tch.position || 'Docente',
           planned_date: a.planned_date || a.effective_from || '',
           effective_from: a.effective_from || '',

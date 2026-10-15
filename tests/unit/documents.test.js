@@ -50,6 +50,54 @@ test('DocumentService reutiliza documento existente de Drive cuando force es fal
   assert.equal(result.url,'https://drive.google.com/file/d/file-drive-123/view');
 });
 
+test('DocumentService.getBlob retorna base64 y asegura permisos de visualización',()=>{
+  let sharedAccess = null;
+  let sharedPerm = null;
+  const docContext = {
+    AppErrors: { validation: msg => new Error(msg), document: msg => new Error(msg) },
+    Auth: { current: () => ({ user_id: 'user-1' }), assertVisit: () => true },
+    VisitService: { raw: () => ({ visit_id: 'v-1' }) },
+    SheetsRepository: {
+      filter: (table, pred) => {
+        if (table === 'DOCUMENTS') {
+          return [{
+            document_id: 'doc-1',
+            visit_id: 'v-1',
+            document_type: 'FULL_PACKAGE',
+            status: 'READY',
+            drive_file_id: 'drive-file-999',
+            file_name: 'VIS_001_FULL.pdf',
+            superseded_at: ''
+          }].filter(pred);
+        }
+        return [];
+      }
+    },
+    DriveApp: {
+      Access: { ANYONE_WITH_LINK: 'ANYONE_WITH_LINK' },
+      Permission: { VIEW: 'VIEW' },
+      getFileById: (id) => ({
+        getName: () => 'VIS_001_FULL.pdf',
+        setSharing: (acc, perm) => { sharedAccess = acc; sharedPerm = perm; },
+        getBlob: () => ({
+          getBytes: () => Buffer.from('%PDF-1.4 mock content')
+        })
+      })
+    },
+    Utilities: {
+      base64Encode: (bytes) => Buffer.from(bytes).toString('base64')
+    }
+  };
+  vm.createContext(docContext);
+  vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../../src/application/DocumentService.gs'), 'utf8'), docContext);
+  const blobData = docContext.DocumentService.getBlob('v-1', 'FULL_PACKAGE');
+  assert.equal(blobData.fileName, 'VIS_001_FULL.pdf');
+  assert.equal(blobData.mimeType, 'application/pdf');
+  assert.equal(Buffer.from(blobData.base64, 'base64').toString('utf8'), '%PDF-1.4 mock content');
+  assert.equal(sharedAccess, 'ANYONE_WITH_LINK');
+  assert.equal(sharedPerm, 'VIEW');
+});
+
 test('DocsGateway.parseDriveFileId extrae el ID de diversos formatos de enlace de Drive',()=>{
   const parse=context.DocsGateway.parseDriveFileId;
   assert.equal(parse('https://drive.google.com/file/d/1AbC_123-XYZ9876543210/view?usp=sharing'),'1AbC_123-XYZ9876543210');

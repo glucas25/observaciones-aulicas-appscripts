@@ -102,3 +102,18 @@ test('renderList integra asignaciones pendientes con boton de inicio rapido y bl
   assert.match(source,/🔒 En preparación/);
   assert.match(source,/preselectedAssignmentId/);
 });
+
+test('renderList y App.html resuelven nombres de docentes y evaluadores y evitan mostrar UUIDs',()=>{
+  assert.match(source,/resolveStaff/);
+  assert.match(source,/isUuidOrCode/);
+});
+
+test('renderNew detecta evaluaciones activas existentes e impide duplicar borradores',()=>{
+  assert.match(source,/findActiveVisitForTeacher/);
+  assert.match(source,/Evaluación en curso existente/);
+  assert.match(source,/Abrir borrador/);
+  assert.match(source,/btn-open-active-visit/);
+  assert.match(source,/No se permite crear un nuevo borrador mientras exista uno en proceso/);
+});
+
+

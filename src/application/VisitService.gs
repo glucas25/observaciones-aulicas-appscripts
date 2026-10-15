@@ -87,8 +87,18 @@ var VisitService = (function () {
   function create(dto, requestId) {
     var actor = Auth.requireRoles(['ADMIN', 'DIRECTIVE', 'EVALUATOR']);
     dto = dto || {};
-    var teacher = SheetsRepository.find('USERS', 'user_id', dto.teacherId) || SheetsRepository.find('TEACHERS', 'teacher_id', dto.teacherId);
+    var teacher = SheetsRepository.find('USERS', 'user_id', dto.teacherId) ||
+                  SheetsRepository.find('TEACHERS', 'teacher_id', dto.teacherId) ||
+                  SheetsRepository.find('TEACHERS', 'user_id', dto.teacherId);
     if (!teacher || String(teacher.active).toLowerCase() === 'false') throw AppErrors.validation('Seleccione un docente activo.');
+    if (!teacher.teacher_id && teacher.user_id) {
+      var tr = SheetsRepository.find('TEACHERS', 'user_id', String(teacher.user_id));
+      if (tr && tr.teacher_id) teacher.teacher_id = tr.teacher_id;
+    }
+    if (!teacher.user_id && teacher.teacher_id) {
+      var tr2 = SheetsRepository.find('TEACHERS', 'teacher_id', String(teacher.teacher_id));
+      if (tr2 && tr2.user_id) teacher.user_id = tr2.user_id;
+    }
     var institution = SheetsRepository.find('INSTITUTIONS', 'institution_id', teacher.institution_id);
     if (!institution) throw AppErrors.validation('La institución del docente no existe.');
     Auth.assertCanCreate(actor, teacher, dto.visitDate);
@@ -124,6 +134,26 @@ var VisitService = (function () {
     }
     var lock = LockService.getScriptLock(); lock.waitLock(20000);
     try {
+      // Regla de negocio: No permitir crear una nueva visita si el docente ya tiene una evaluación activa/en curso
+      var openVisit = SheetsRepository.filter('VISITS', function (v) {
+        var isOpen = [VisitState.values.DRAFT, VisitState.values.REVIEW, VisitState.values.REOPENED].indexOf(v.status) >= 0;
+        if (!isOpen) return false;
+        var tid = String(teacher.teacher_id || '');
+        var uid = String(teacher.user_id || '');
+        var vTid = String(v.teacher_id || '');
+        if ((uid && vTid === uid) || (tid && vTid === tid)) return true;
+        var tName = String(teacher.display_name || teacher.full_name || '').trim().toLowerCase();
+        var vName = String(v.teacher_name_snapshot || '').trim().toLowerCase();
+        if (tName && vName && (tName === vName || tName.indexOf(vName) >= 0 || vName.indexOf(tName) >= 0)) return true;
+        return false;
+      })[0];
+      if (openVisit) {
+        var stLabel = openVisit.status === VisitState.values.DRAFT ? 'Borrador' :
+                      (openVisit.status === VisitState.values.REVIEW ? 'En Revisión' : 'Reabierta');
+        throw AppErrors.validation('El docente ya tiene una evaluación en curso (' +
+          openVisit.visit_code + ' en estado ' + stLabel + '). Debe continuar con el borrador existente o anularlo antes de iniciar uno nuevo.');
+      }
+
       var year = new Date().getFullYear(), sequence = SheetsRepository.nextSequence('VISIT', year);
       var id = Utilities.getUuid(), now = JsonUtil.now();
       var row = visitRow_(dto, {
