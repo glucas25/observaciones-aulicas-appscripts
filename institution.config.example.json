@@ -7,8 +7,12 @@
     "district": "Distrito 01D01",
     "circuit": "Circuito C01",
     "address": "Av. Principal y Calle Secundaria",
+    "phone": "0999999999",
+    "email": "institucion@educacion.gob.ec",
+    "province": "Pichincha",
     "defaultShift": "Matutina",
-    "logoDriveUrl": ""
+    "logoDriveUrl": "",
+    "ministryLogoDriveUrl": ""
   },
   "initialAdmin": {
     "email": "administrador@institucion.edu.ec",

@@ -1,6 +1,6 @@
 # 🏫 Sistema de Observaciones Áulicas (Google Workspace Enterprise)
 
-[![CI](https://github.com/glucas25/observaciones-aulicas-appscripts/actions/workflows/ci.yml/badge.svg)](https://github.com/glucas25/observaciones-aulicas-appscripts/actions/workflows/ci.yml)
+[![CI](https://github.com/glucas25/observaciones-aulicas-clasp/actions/workflows/ci.yml/badge.svg)](https://github.com/glucas25/observaciones-aulicas-clasp/actions/workflows/ci.yml)
 ![Google Apps Script](https://img.shields.io/badge/Google%20Apps%20Script-V8%20Runtime-4285F4?logo=google&logoColor=white)
 ![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2F%20DDD-0ea5e9)
 ![Node.js](https://img.shields.io/badge/Node.js-v20%2B-339933?logo=node.js&logoColor=white)
@@ -9,6 +9,21 @@
 > **Plataforma web integral para la gestión, rúbrica pedagógica y generación automatizada de expedientes de observación áulica**, construida sobre el ecosistema **Google Workspace** (Apps Script, Sheets, Docs y Drive).
 
 Diseñado con estándares de **Clean Architecture**, control de concurrencia optimista, snapshots criptográficos inmutables para validez legal/auditoría y configuración institucional desacoplada mediante JSON.
+
+---
+
+## Versión 1.1.0
+
+Esta versión consolida las correcciones posteriores a la primera publicación:
+
+- Encabezados PDF configurables con logotipo ministerial a la izquierda, datos institucionales al centro y logotipo institucional a la derecha.
+- Diagramación estable de los Anexos 1, 2, 3 y 5: ficha de observación en una página, rúbrica en dos páginas y firmas únicamente en el Anexo 5.
+- Selecciones de ficha y rúbrica sin corchetes vacíos, con la opción elegida resaltada mediante una `X` centrada.
+- Carga y validación de logotipos PNG/JPG desde Administración, con límite de 2 MB.
+- Interfaz adaptable a móviles y mejoras de claridad en la rúbrica y el compromiso docente.
+- Menor latencia al cargar visitas y documentos; visualización y descarga directa de los PDF ya creados desde Google Drive.
+
+Esta es la versión recomendada para nuevas instalaciones institucionales.
 
 ---
 
@@ -22,8 +37,9 @@ Diseñado con estándares de **Clean Architecture**, control de concurrencia opt
   - Saneamiento contra inyección de fórmulas (`=`, `+`, `-`, `@`).
 - **📑 Generación de Expedientes Oficiales en PDF**:
   - Renderizado dinámico de los **Anexos 1, 2, 3 y 5** (incluyendo el paquete consolidado oficial).
-  - Encabezado institucional con logotipo de Google Drive y caché multinivel (`CacheService` en memoria) para optimizar cuotas de Drive.
-  - Marcadores de agua, pie de página estandarizado y metadatos trazables.
+  - Encabezado formal con dos logotipos, datos institucionales editables y caché multinivel (`CacheService` en memoria) para optimizar cuotas de Drive.
+  - Distribución controlada por páginas, pie institucional estandarizado y metadatos trazables.
+  - Visualización y descarga directa desde Drive una vez generado el expediente, sin retransmitir el PDF en Base64.
 - **🔒 Integridad y Snapshots Inmutables**:
   - Al finalizar una evaluación se genera un snapshot `SHA-256`. Los documentos nunca leen datos editables post-cierre.
   - Flujo de estados formal: `BORRADOR` ➔ `EN_REVISION` ➔ `FINALIZADA` ➔ `DOCUMENTOS_GENERADOS`.
@@ -39,7 +55,7 @@ Diseñado con estándares de **Clean Architecture**, control de concurrencia opt
   - **Autoría docente exclusiva**: El *Compromiso del docente* en el Anexo 5 nunca es generado por la IA; se reserva para la redacción y firma del propio docente observado.
   - **Herramienta 100% opcional (Human-in-the-loop)**: Exige haber completado el Anexo 1 (registro narrativo) y los 15 criterios de la rúbrica; el evaluador siempre revisa y aprueba el borrador.
 - **🧪 Calidad e Integración Continua**:
-  - Suite de **47 pruebas unitarias nativas** con `node:test` simulando todos los servicios de Google Workspace (Sheets, Docs, Drive, Cache, Lock, UrlFetch).
+  - Suite de **69 pruebas unitarias nativas** con `node:test` simulando todos los servicios de Google Workspace (Sheets, Docs, Drive, Cache, Lock, UrlFetch).
   - Pipeline de GitHub Actions (CI) con validación sintáctica V8 y verificación de catálogos.
 
 ---
@@ -101,8 +117,8 @@ Sigue estos 5 pasos para desplegar el sistema en cualquier institución educativ
 
 ### Paso 1: Clonar el repositorio y vincular con Apps Script
 ```bash
-git clone https://github.com/glucas25/observaciones-aulicas-appscripts.git
-cd observaciones-aulicas-appscripts
+git clone https://github.com/glucas25/observaciones-aulicas-clasp.git
+cd observaciones-aulicas-clasp
 ```
 
 Crea un nuevo proyecto en Google Apps Script:
@@ -130,8 +146,12 @@ Abre `institution.config.json` y personaliza los datos de tu institución:
     "district": "Distrito 17D01",
     "circuit": "Circuito C01",
     "address": "Av. Principal y Calle Secundaria",
+    "phone": "0999999999",
+    "email": "institucion@educacion.gob.ec",
+    "province": "Pichincha",
     "defaultShift": "Matutina",
-    "logoDriveUrl": "https://drive.google.com/file/d/ID_DE_TU_LOGO_EN_DRIVE/view"
+    "logoDriveUrl": "https://drive.google.com/file/d/ID_LOGO_INSTITUCIONAL/view",
+    "ministryLogoDriveUrl": "https://drive.google.com/file/d/ID_LOGO_MINISTERIAL/view"
   },
   "initialAdmin": {
     "email": "rectorado@tuinstitucion.edu.ec",
@@ -156,7 +176,7 @@ Abre `institution.config.json` y personaliza los datos de tu institución:
 ### Paso 3: Probar y subir el código a Google Apps Script
 Valida la integridad del proyecto y sube el código:
 ```bash
-# 1. Ejecutar las 47 pruebas unitarias locales
+# 1. Ejecutar las 69 pruebas unitarias locales
 npm test
 
 # 2. Validar esquema, UI y catálogos pedagógicos
@@ -220,7 +240,7 @@ function iniciar() {
 1. En la esquina superior derecha del editor de Apps Script, haz clic en **Implementar** (*Deploy*) ➔ **Nueva implementación** (*New deployment*).
 2. Selecciona el tipo **Aplicación web** (*Web app*).
 3. Configura:
-   - **Descripción**: `v1.0.0 Producción Institucional`.
+   - **Descripción**: `v1.1.0 Producción Institucional`.
    - **Ejecutar como**: `Yo` (*User deploying / cuenta del administrador*).
    - **Quién tiene acceso**: `Cualquier usuario de la organización` (o `Cualquier usuario con cuenta de Google` si se usa Gmail estándar).
 4. Haz clic en **Implementar** y copia la **URL de la aplicación web**.

@@ -9,3 +9,5 @@ institution.config.json
 config.json
 *.local.json
 docs copy/
+/tmp/
+/docs/*.pdf

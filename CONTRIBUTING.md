@@ -10,7 +10,7 @@ Toda contribución —desde reportar un error o mejorar la redacción de un desc
 
 Puedes colaborar de diferentes maneras, no solo programando:
 
-1. **Reportar Errores (*Bug Reports*)**: Si encuentras un comportamiento inesperado o fallo en la aplicación, abre un [Issue en GitHub](https://github.com/glucas25/observaciones-aulicas-appscripts/issues) con pasos claros para reproducirlo.
+1. **Reportar Errores (*Bug Reports*)**: Si encuentras un comportamiento inesperado o fallo en la aplicación, abre un [Issue en GitHub](https://github.com/glucas25/observaciones-aulicas-clasp/issues) con pasos claros para reproducirlo.
 2. **Sugerir Mejoras o Funcionalidades**: ¿Tu institución o distrito requiere adaptaciones pedagógicas (por ejemplo, reportes adicionales o ajustes en rúbricas)? Abre una propuesta en Issues para dialogar sobre la necesidad.
 3. **Mejorar la Documentación**: Corrección de erratas, guías adicionales de configuración o mejoras en los manuales de usuario.
 4. **Aportar Código (*Pull Requests*)**: Corrección de incidencias o desarrollo de nuevas características acordadas.
@@ -42,8 +42,8 @@ Puedes colaborar de diferentes maneras, no solo programando:
 
 2. **Clona tu fork localmente**:
    ```bash
-   git clone https://github.com/TU_USUARIO/observaciones-aulicas-appscripts.git
-   cd observaciones-aulicas-appscripts
+   git clone https://github.com/TU_USUARIO/observaciones-aulicas-clasp.git
+   cd observaciones-aulicas-clasp
    ```
 
 3. **Crea una rama para tu cambio**:
@@ -61,7 +61,7 @@ Puedes colaborar de diferentes maneras, no solo programando:
 5. **Verifica las pruebas unitarias y la integridad del proyecto**:
    Antes de enviar cualquier cambio, ejecuta obligatoriamente:
    ```bash
-   # Ejecuta las 47 pruebas unitarias locales
+   # Ejecuta las 69 pruebas unitarias locales
    npm test
 
    # Valida el esquema, catálogos pedagógicos y UI
