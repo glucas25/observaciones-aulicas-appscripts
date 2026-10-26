@@ -48,6 +48,7 @@ var Auth = (function () {
   }
   function isReceivedVisit_(user, visit) {
     if (!user || !visit) return false;
+    if (user.user_id && (String(visit.evaluator_user_id) === String(user.user_id) || (visit.co_evaluator_user_id && String(visit.co_evaluator_user_id) === String(user.user_id)))) return false;
     var teacher = teacherForUser(user);
     if (teacher) {
       var tchId = String(teacher.teacher_id || '');
@@ -66,7 +67,7 @@ var Auth = (function () {
   function canListVisit(user, visit) {
     var userRoles = userRoles_(user);
     if (userRoles.indexOf('ADMIN') >= 0 || userRoles.indexOf('VIEWER') >= 0) return true;
-    if (user.role === 'DIRECTIVE') return String(visit.institution_id) === String(user.institution_id);
+    if (userRoles.indexOf('DIRECTIVE') >= 0 && !isReceivedVisit_(user, visit)) return String(visit.institution_id) === String(user.institution_id);
     if (String(visit.evaluator_user_id) === String(user.user_id)) return true;
     if (visit.co_evaluator_user_id && String(visit.co_evaluator_user_id) === String(user.user_id)) return true;
     return isReceivedVisit_(user, visit);
@@ -74,7 +75,7 @@ var Auth = (function () {
   function canViewVisit(user, visit) {
     var userRoles = userRoles_(user);
     if (userRoles.indexOf('ADMIN') >= 0 || userRoles.indexOf('VIEWER') >= 0) return true;
-    if (user.role === 'DIRECTIVE') return String(visit.institution_id) === String(user.institution_id);
+    if (userRoles.indexOf('DIRECTIVE') >= 0 && !isReceivedVisit_(user, visit)) return String(visit.institution_id) === String(user.institution_id);
     if (String(visit.evaluator_user_id) === String(user.user_id)) return true;
     if (visit.co_evaluator_user_id && String(visit.co_evaluator_user_id) === String(user.user_id)) return true;
     return isReceivedVisit_(user, visit) && isVisibleToTeacher_(visit);
@@ -125,8 +126,8 @@ var Auth = (function () {
     }).length > 0;
   }
   function assertCanCreate(user, teacher, visitDate) {
-    if (user.role !== 'ADMIN' && String(teacher.institution_id) !== String(user.institution_id)) throw AppErrors.forbidden();
-    if (user.role !== 'ADMIN' && String(teacher.email || '').trim().toLowerCase() === String(user.email || '').trim().toLowerCase()) throw AppErrors.forbidden('No puede crear una evaluación para usted mismo.');
+    if (!hasRole(user, 'ADMIN') && String(teacher.institution_id) !== String(user.institution_id)) throw AppErrors.forbidden();
+    if (!hasRole(user, 'ADMIN') && String(teacher.email || '').trim().toLowerCase() === String(user.email || '').trim().toLowerCase()) throw AppErrors.forbidden('No puede crear una evaluación para usted mismo.');
     if (!hasActiveAssignment(user, teacher, visitDate)) throw AppErrors.forbidden('El docente no está asignado a este evaluador para la fecha indicada.');
   }
   return {

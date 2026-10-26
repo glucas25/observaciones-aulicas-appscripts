@@ -114,23 +114,37 @@ var VisitService = (function () {
     Auth.assertCanCreate(actor, teacher, dto.visitDate);
     var actorRoles = String(actor.role || '').split(',').map(function (r) { return r.trim().toUpperCase(); });
     var isAdmin = actorRoles.indexOf('ADMIN') >= 0;
+    var tchIds = {};
+    if (teacher.teacher_id) tchIds[String(teacher.teacher_id)] = true;
+    if (teacher.user_id) tchIds[String(teacher.user_id)] = true;
+    var activeAssignment = SheetsRepository.filter('EVALUATOR_ASSIGNMENTS', function (row) {
+      if (String(row.active).toLowerCase() === 'false' || !tchIds[String(row.teacher_id)]) return false;
+      if (isAdmin) return true;
+      return String(row.evaluator_user_id) === String(actor.user_id) || String(row.co_evaluator_user_id) === String(actor.user_id);
+    })[0] || null;
+    var leadEvaluatorId = isAdmin
+      ? (dto.evaluatorUserId || (activeAssignment && activeAssignment.evaluator_user_id) || actor.user_id)
+      : ((activeAssignment && activeAssignment.evaluator_user_id) || dto.evaluatorUserId || actor.user_id);
+    var coEvaluatorId = (dto.coEvaluatorUserId != null && dto.coEvaluatorUserId !== '')
+      ? dto.coEvaluatorUserId
+      : ((activeAssignment && activeAssignment.co_evaluator_user_id) || '');
     var leadUser = actor;
-    if (isAdmin && dto.evaluatorUserId && String(dto.evaluatorUserId) !== String(actor.user_id)) {
-      var assignedEvaluator = SheetsRepository.find('USERS', 'user_id', String(dto.evaluatorUserId));
+    if (leadEvaluatorId && String(leadEvaluatorId) !== String(actor.user_id)) {
+      var assignedEvaluator = SheetsRepository.find('USERS', 'user_id', String(leadEvaluatorId));
       if (assignedEvaluator && String(assignedEvaluator.active).toLowerCase() !== 'false') {
         leadUser = assignedEvaluator;
       }
     }
     var ev1Name = (leadUser.display_name || leadUser.email) + (leadUser.position ? ' (' + leadUser.position + ')' : '');
     var coId = '', coName = '';
-    if (dto.coEvaluatorUserId) {
-      if (String(dto.coEvaluatorUserId) === String(leadUser.user_id)) {
+    if (coEvaluatorId) {
+      if (String(coEvaluatorId) === String(leadUser.user_id)) {
         throw AppErrors.validation('El segundo evaluador no puede ser el mismo evaluador principal.');
       }
-      if (String(dto.coEvaluatorUserId) === String(teacher.user_id || teacher.teacher_id)) {
+      if (tchIds[String(coEvaluatorId)]) {
         throw AppErrors.validation('El segundo evaluador no puede ser el docente observado.');
       }
-      var coUser = SheetsRepository.find('USERS', 'user_id', String(dto.coEvaluatorUserId));
+      var coUser = SheetsRepository.find('USERS', 'user_id', String(coEvaluatorId));
       if (!coUser || String(coUser.active).toLowerCase() === 'false') {
         throw AppErrors.validation('El segundo evaluador no existe o está inactivo.');
       }

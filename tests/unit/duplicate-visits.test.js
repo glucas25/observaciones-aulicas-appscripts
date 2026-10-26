@@ -234,3 +234,92 @@ test('VisitService.create permite crear una nueva visita si la visita anterior f
   assert.equal(created.status, 'DRAFT');
   assert.equal(tables.VISITS.length, 2);
 });
+
+
+test('VisitService.create permite crear borrador cuando hay un solo evaluador asignado', () => {
+  const { context } = buildContext([]);
+  const created = context.VisitService.create({
+    teacherId: 'tch-palma',
+    evaluatorUserId: 'ev-1',
+    visitDate: '2026-10-15',
+    shift: 'Matutina'
+  }, 'req-single-eval');
+
+  assert.equal(created.status, 'DRAFT');
+  assert.equal(created.evaluatorUserId, 'ev-1');
+  assert.equal(created.coEvaluatorUserId, '');
+  assert.equal(created.createdBy, 'ev-1');
+});
+
+test('VisitService.create permite tanto al directivo como al coevaluador crear el borrador sin problema', () => {
+  const directive = {
+    user_id: 'dir-1',
+    display_name: 'Directivo Institucional',
+    position: 'Rector',
+    email: 'directivo@example.com',
+    role: 'DIRECTIVE',
+    institution_id: 'inst-1',
+    active: true
+  };
+  const coEvaluator = {
+    user_id: 'co-1',
+    display_name: 'Docente Coevaluador',
+    position: 'Coordinador de Área',
+    email: 'coevaluador@example.com',
+    role: 'DOCENTE,EVALUATOR',
+    institution_id: 'inst-1',
+    active: true
+  };
+  const { context, tables } = buildContext([]);
+  tables.USERS.push(directive, coEvaluator);
+  tables.EVALUATOR_ASSIGNMENTS = [
+    {
+      assignment_id: 'asg-co-1',
+      evaluator_user_id: 'dir-1',
+      co_evaluator_user_id: 'co-1',
+      teacher_id: 'tch-palma',
+      planned_date: '2026-10-15',
+      active: true
+    }
+  ];
+
+  // Caso 1: El coevaluador inicia sesión y crea el borrador enviando evaluatorUserId y coEvaluatorUserId (como hace la UI)
+  context.Session.getActiveUser = () => ({ getEmail: () => coEvaluator.email });
+  const createdByCo = context.VisitService.create({
+    teacherId: 'tch-palma',
+    evaluatorUserId: 'dir-1',
+    coEvaluatorUserId: 'co-1',
+    visitDate: '2026-10-15',
+    shift: 'Matutina'
+  }, 'req-co-creates');
+
+  assert.equal(createdByCo.status, 'DRAFT');
+  assert.equal(createdByCo.evaluatorUserId, 'dir-1', 'El directivo se mantiene como evaluador principal');
+  assert.match(createdByCo.evaluatorNameSnapshot, /Directivo Institucional/);
+  assert.equal(createdByCo.coEvaluatorUserId, 'co-1', 'El coevaluador queda registrado como segundo evaluador');
+  assert.match(createdByCo.coEvaluatorNameSnapshot, /Docente Coevaluador/);
+  assert.equal(createdByCo.createdBy, 'co-1', 'Queda registrado que el coevaluador creó el borrador');
+
+  // Ambos (directivo y coevaluador) pueden ver y editar el borrador creado
+  const rawVisit = tables.VISITS[0];
+  assert.equal(context.Auth.canViewVisit(coEvaluator, rawVisit), true);
+  assert.equal(context.Auth.canEditVisit(coEvaluator, rawVisit), true);
+  assert.equal(context.Auth.canViewVisit(directive, rawVisit), true);
+  assert.equal(context.Auth.canEditVisit(directive, rawVisit), true);
+
+  // Caso 2: Si se anula y ahora el directivo crea el borrador, también funciona sin problema
+  rawVisit.status = 'ANNULLED';
+  context.Session.getActiveUser = () => ({ getEmail: () => directive.email });
+  const createdByDir = context.VisitService.create({
+    teacherId: 'tch-palma',
+    evaluatorUserId: 'dir-1',
+    coEvaluatorUserId: 'co-1',
+    visitDate: '2026-10-15',
+    shift: 'Matutina'
+  }, 'req-dir-creates');
+
+  assert.equal(createdByDir.status, 'DRAFT');
+  assert.equal(createdByDir.evaluatorUserId, 'dir-1');
+  assert.equal(createdByDir.coEvaluatorUserId, 'co-1');
+  assert.equal(createdByDir.createdBy, 'dir-1');
+});

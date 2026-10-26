@@ -49,7 +49,7 @@ var CatalogService = (function () {
         });
       } catch (e) {}
       teachers = teachers.filter(function (teacher) {
-        return assigned[String(teacher.teacher_id)] &&
+        return (assigned[String(teacher.teacher_id)] || (teacher.user_id && assigned[String(teacher.user_id)])) &&
           String(teacher.institution_id) === String(user.institution_id) &&
           String(teacher.email || '').trim().toLowerCase() !== String(user.email || '').trim().toLowerCase();
       });
