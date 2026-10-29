@@ -187,6 +187,7 @@ var VisitService = (function () {
       }
 
       var year = new Date().getFullYear(), sequence = SheetsRepository.nextSequence('VISIT', year);
+      var defaultDirective = '- Fortalecer el acompañamiento pedagógico docente mediante capacitaciones y círculos de estudios\n- Brindar orientaciones adecuadas para el mejoramiento de la práctica docente\n- Apoyar contantemente en el uso de los recursos didácticos y tecnológicos para el fortalecimiento del proceso de enseñanza aprendizaje';
       var id = Utilities.getUuid(), now = JsonUtil.now();
       var row = visitRow_(dto, {
         visit_id: id, visit_code: 'VIS-' + year + '-' + ('000000' + sequence).slice(-6), form_number: dto.formNumber || ('000000' + sequence).slice(-6), institution_id: institution.institution_id,
@@ -194,6 +195,7 @@ var VisitService = (function () {
         rubric_version_id: 'rubric-v1', general_catalog_version: 'GEN-1.0', evidence_catalog_version: 'EVI-1.0-DRAFT',
         teacher_name_snapshot: teacher.display_name || teacher.full_name, institution_name_snapshot: institution.name, location: institution.location, zone: institution.zone,
         district: institution.district, circuit: institution.circuit, institution_address: institution.address, shift: dto.shift || institution.default_shift || 'Matutina',
+        directive_commitments: dto.directiveCommitments || defaultDirective,
         evaluator_name_snapshot: ev1Name, co_evaluator_user_id: coId, co_evaluator_name_snapshot: coName,
         institution_logo_drive_id: institution.logo_drive_id || institution.logo_file_id || '',
         ai_used: false, reviewed_by_human: false, created_at: now, created_by: actor.user_id, updated_at: now, updated_by: actor.user_id
