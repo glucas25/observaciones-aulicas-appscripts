@@ -36,14 +36,22 @@ var Validation = (function () {
   }
   function validateForReview(aggregate) {
     validateVisitDraft(aggregate);
-    if (!aggregate.shift) aggregate.shift = 'Matutina';
+    var vDate = aggregate.visitDate || aggregate.visit_date;
+    if (vDate) aggregate.visitDate = vDate;
+    if (!aggregate.shift) aggregate.shift = aggregate.shift || 'Matutina';
     var labels = {
       visitDate: 'Fecha', teacherId: 'Docente', gradeCourse: 'Curso', subject: 'Asignatura',
       contentTopic: 'Contenido / Tema',
       strengths: 'Fortalezas', improvements: 'Aspectos a mejorar',
       directiveCommitments: 'Compromiso directivo'
     };
-    Object.keys(labels).forEach(function (key) { required(aggregate[key], labels[key], 5000); });
+    Object.keys(labels).forEach(function (key) {
+      var snakeKey = key.replace(/[A-Z]/g, function (c) { return '_' + c.toLowerCase(); });
+      var val = (aggregate[key] != null && String(aggregate[key]).trim() !== '')
+        ? aggregate[key]
+        : ((aggregate[snakeKey] != null && String(aggregate[snakeKey]).trim() !== '') ? aggregate[snakeKey] : '');
+      required(val, labels[key], 5000);
+    });
     if (aggregate.observationRecord != null && aggregate.observationRecord !== '') {
       text(aggregate.observationRecord, 12000);
     }
@@ -60,7 +68,10 @@ var Validation = (function () {
   }
   function validateForFinalization(aggregate) {
     validateForReview(aggregate);
-    required(aggregate.teacherCommitments, 'Compromiso docente', 5000);
+    var teacherComm = (aggregate.teacherCommitments != null && String(aggregate.teacherCommitments).trim() !== '')
+      ? aggregate.teacherCommitments
+      : ((aggregate.teacher_commitments != null && String(aggregate.teacher_commitments).trim() !== '') ? aggregate.teacher_commitments : '');
+    required(teacherComm, 'Compromiso docente', 5000);
     return true;
   }
   function safeCell(value) {

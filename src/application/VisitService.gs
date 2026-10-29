@@ -61,12 +61,18 @@ var VisitService = (function () {
     var out = Object.assign({}, base || {});
     var editable = ['formNumber', 'visitDate', 'classStartTime', 'shift', 'gradeCourse', 'parallel', 'sublevel', 'area', 'subject', 'contentTopic', 'studentCount', 'observationRecord', 'strengths', 'improvements', 'directiveCommitments', 'teacherCommitments', 'finalObservations', 'aiUsed', 'reviewedByHuman'];
     editable.forEach(function (key) {
+      var dbKey = map[key] || key.replace(/[A-Z]/g, function (c) { return '_' + c.toLowerCase(); });
+      var val = undefined;
       if (Object.prototype.hasOwnProperty.call(dto, key)) {
-        var dbKey = map[key] || key.replace(/[A-Z]/g, function (c) { return '_' + c.toLowerCase(); });
-        if (key === 'teacherCommitments' && (!dto[key] || !String(dto[key]).trim()) && base && base.teacher_commitments && String(base.teacher_commitments).trim()) {
+        val = dto[key];
+      } else if (Object.prototype.hasOwnProperty.call(dto, dbKey)) {
+        val = dto[dbKey];
+      }
+      if (val !== undefined) {
+        if (key === 'teacherCommitments' && (!val || !String(val).trim()) && base && base.teacher_commitments && String(base.teacher_commitments).trim()) {
           return;
         }
-        out[dbKey] = dto[key];
+        out[dbKey] = val;
       }
     });
     if (out.visit_date && typeof out.visit_date === 'string' && out.visit_date.indexOf('T') >= 0) {
@@ -84,20 +90,16 @@ var VisitService = (function () {
     return row;
   }
   function aggregate_(row) {
-    var cache = null;
-    var cacheKey = 'VISIT_AGG_' + String(row.visit_id) + '_' + String(row.data_version || '') + '_' + String(row.row_version || '');
     try {
       if (typeof CacheService !== 'undefined') {
-        cache = CacheService.getScriptCache();
-        var cached = cache.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        var cacheKey = 'VISIT_AGG_' + String(row.visit_id) + '_' + String(row.data_version || '') + '_' + String(row.row_version || '');
+        CacheService.getScriptCache().remove(cacheKey);
       }
-    } catch (cacheReadError) {}
+    } catch (_) {}
     var dto = toCamel_(row);
     dto.generalResponses = SheetsRepository.filter('VISIT_GENERAL_RESPONSES', function (r) { return String(r.visit_id) === String(row.visit_id); }).map(toCamel_);
     dto.rubricResponses = SheetsRepository.filter('VISIT_RUBRIC_RESPONSES', function (r) { return String(r.visit_id) === String(row.visit_id); }).map(toCamel_);
     dto.evidenceChecks = SheetsRepository.filter('VISIT_EVIDENCE_CHECKS', function (r) { return String(r.visit_id) === String(row.visit_id); }).map(toCamel_);
-    try { if (cache) cache.put(cacheKey, JSON.stringify(dto), 600); } catch (cacheWriteError) {}
     return dto;
   }
   function create(dto, requestId) {

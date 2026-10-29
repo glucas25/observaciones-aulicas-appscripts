@@ -213,3 +213,37 @@ test('FinalizationService.finalize lanza VERSION_CONFLICT si la versión esperad
   }, (e) => e.code === 'VERSION_CONFLICT');
 });
 
+test('Validation.validateForReview acepta campos tanto en camelCase como snake_case', () => {
+  const context = {
+    console,
+    Date,
+    AppErrors: { validation: (m, d) => { const e = new Error(m); e.code = 'VALIDATION_ERROR'; e.details = d; return e; } }
+  };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(root, 'src/domain/Validation.gs'), 'utf8'), context);
+
+  // Aggregate with snake_case fields
+  const aggregateSnake = {
+    visit_date: '2026-10-28',
+    teacher_id: 'tch-1',
+    grade_course: '10mo EGB',
+    parallel: 'A',
+    subject: 'Matemáticas',
+    content_topic: 'Álgebra',
+    strengths: 'Buenas explicaciones',
+    improvements: 'Manejo del tiempo',
+    directive_commitments: 'Acompañamiento',
+    teacher_commitments: 'Aplicar rúbricas',
+    generalResponses: [
+      { generalCriterionId: 'g1', result: 'FULLY_AGREE' }, { generalCriterionId: 'g2', result: 'FULLY_AGREE' }, { generalCriterionId: 'g3', result: 'FULLY_AGREE' },
+      { generalCriterionId: 'g4', result: 'FULLY_AGREE' }, { generalCriterionId: 'g5', result: 'FULLY_AGREE' }, { generalCriterionId: 'g6', result: 'FULLY_AGREE' }
+    ],
+    rubricResponses: Array.from({ length: 15 }, (_, i) => ({ criterionId: 'r' + (i + 1), level: 'ACHIEVED' }))
+  };
+
+  assert.doesNotThrow(() => {
+    context.Validation.validateForFinalization(aggregateSnake);
+  }, 'validateForFinalization no debe lanzar error si los campos están en snake_case');
+});
+
+

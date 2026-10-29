@@ -28,7 +28,15 @@ var FinalizationService = (function () {
       } else if (row.status !== VisitState.values.REVIEW) {
         throw AppErrors.validation('El estado actual de la evaluación no permite finalizarla.');
       }
-      var aggregate = VisitService.aggregate(row); Validation.validateForFinalization(aggregate);
+      var aggregate = VisitService.aggregate(row);
+      if (visitDto) {
+        ['gradeCourse', 'parallel', 'sublevel', 'area', 'subject', 'contentTopic', 'strengths', 'improvements', 'directiveCommitments'].forEach(function (k) {
+          if ((aggregate[k] == null || aggregate[k] === '') && visitDto[k]) {
+            aggregate[k] = visitDto[k];
+          }
+        });
+      }
+      Validation.validateForFinalization(aggregate);
       VisitState.assertTransition(row.status, VisitState.values.FINALIZED);
       var generalById={},rubricById={},evidenceById={};
       SheetsRepository.all('GENERAL_CRITERIA').forEach(function(c){generalById[c.general_criterion_id]=c;});
@@ -62,7 +70,17 @@ var FinalizationService = (function () {
         if (!VisitState.isEditable(row.status)) throw AppErrors.validation('La evaluación está bloqueada para edición.');
         row = VisitService.applyDraft(visitId, visitDto, actor, now, row);
       }
-      if(target===VisitState.values.REVIEW)Validation.validateForReview(VisitService.aggregate(row));
+      if (target === VisitState.values.REVIEW) {
+        var aggRev = VisitService.aggregate(row);
+        if (visitDto) {
+          ['gradeCourse', 'parallel', 'sublevel', 'area', 'subject', 'contentTopic', 'strengths', 'improvements', 'directiveCommitments'].forEach(function (k) {
+            if ((aggRev[k] == null || aggRev[k] === '') && visitDto[k]) {
+              aggRev[k] = visitDto[k];
+            }
+          });
+        }
+        Validation.validateForReview(aggRev);
+      }
       VisitState.assertTransition(row.status,target); row.status=target; row.row_version=Number(row.row_version)+1; row.updated_at=now; row.updated_by=actor.user_id;
       SheetsRepository.upsert('VISITS',['visit_id'],row); Audit.write(actor,'VISIT_STATUS_CHANGED','VISIT',visitId,row.data_version,requestId,'SUCCESS','Estado actualizado',{status:target});
       return VisitService.aggregate(row);
