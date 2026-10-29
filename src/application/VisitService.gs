@@ -61,7 +61,13 @@ var VisitService = (function () {
     var out = Object.assign({}, base || {});
     var editable = ['formNumber', 'visitDate', 'classStartTime', 'shift', 'gradeCourse', 'parallel', 'sublevel', 'area', 'subject', 'contentTopic', 'studentCount', 'observationRecord', 'strengths', 'improvements', 'directiveCommitments', 'teacherCommitments', 'finalObservations', 'aiUsed', 'reviewedByHuman'];
     editable.forEach(function (key) {
-      if (Object.prototype.hasOwnProperty.call(dto, key)) out[map[key] || key.replace(/[A-Z]/g, function (c) { return '_' + c.toLowerCase(); })] = dto[key];
+      if (Object.prototype.hasOwnProperty.call(dto, key)) {
+        var dbKey = map[key] || key.replace(/[A-Z]/g, function (c) { return '_' + c.toLowerCase(); });
+        if (key === 'teacherCommitments' && (!dto[key] || !String(dto[key]).trim()) && base && base.teacher_commitments && String(base.teacher_commitments).trim()) {
+          return;
+        }
+        out[dbKey] = dto[key];
+      }
     });
     if (out.visit_date && typeof out.visit_date === 'string' && out.visit_date.indexOf('T') >= 0) {
       out.visit_date = out.visit_date.slice(0, 10);
@@ -217,9 +223,16 @@ var VisitService = (function () {
         if (spec[0] === 'VISIT_EVIDENCE_CHECKS' && !evidenceById[item.checkTypeId]) throw AppErrors.validation('Un check documental no existe.');
         return row;
       });
-      SheetsRepository.removeWhere(spec[0], function (r) { return String(r.visit_id) === String(visitId); });
-      prepared.forEach(function (row) { SheetsRepository.append(spec[0], row); });
+      SheetsRepository.removeWhere(spec[0], function (r) { return String(r.visit_id) === String(visitId); }, true);
+      if (SheetsRepository.appendBatch) {
+        SheetsRepository.appendBatch(spec[0], prepared, true);
+      } else {
+        prepared.forEach(function (row) { SheetsRepository.append(spec[0], row); });
+      }
     });
+    if (SheetsRepository.flush) {
+      SheetsRepository.flush();
+    }
   }
   function descriptorFor_(criterionId, level) {
     if (level === 'NOT_APPLICABLE') return '';
@@ -228,16 +241,26 @@ var VisitService = (function () {
     var fields = { ACHIEVED: 'descriptor_achieved', IN_PROGRESS: 'descriptor_in_progress', BEGINNING: 'descriptor_beginning' };
     return criterion[fields[level]] || '';
   }
+  function applyDraft_(visitId, dto, actor, now, current) {
+    if (!dto) return current;
+    Validation.validateVisitDraft(dto);
+    var next = visitRow_(dto, current);
+    next.visit_id = visitId;
+    next.updated_at = now;
+    next.updated_by = actor.user_id;
+    replaceChildren_(visitId, dto, actor, now);
+    return next;
+  }
   function save(visitId, dto, expectedVersion, requestId) {
-    var actor = Auth.requireRoles(['ADMIN', 'DIRECTIVE', 'EVALUATOR']); Validation.validateVisitDraft(dto);
+    var actor = Auth.requireRoles(['ADMIN', 'DIRECTIVE', 'EVALUATOR']);
     var lock = LockService.getScriptLock(); lock.waitLock(20000);
     try {
       var current = raw_(visitId); Auth.assertVisit(actor, current, true);
       if (!VisitState.isEditable(current.status)) throw AppErrors.validation('La evaluación está bloqueada para edición.');
       if (Number(current.row_version) !== Number(expectedVersion)) { Audit.write(actor, 'VERSION_CONFLICT', 'VISIT', visitId, current.data_version, requestId, 'ERROR', 'Conflicto de versión'); throw AppErrors.conflict(); }
-      var now = JsonUtil.now(), next = visitRow_(dto, current);
-      next.visit_id = visitId; next.row_version = Number(current.row_version) + 1; next.updated_at = now; next.updated_by = actor.user_id;
-      replaceChildren_(visitId, dto, actor, now); SheetsRepository.upsert('VISITS', ['visit_id'], next);
+      var now = JsonUtil.now(), next = applyDraft_(visitId, dto, actor, now, current);
+      next.row_version = Number(current.row_version) + 1;
+      SheetsRepository.upsert('VISITS', ['visit_id'], next);
       Audit.write(actor, 'VISIT_SAVED', 'VISIT', visitId, next.data_version, requestId, 'SUCCESS', 'Borrador guardado');
       return aggregate_(next);
     } finally { lock.releaseLock(); }
@@ -280,5 +303,5 @@ var VisitService = (function () {
       return aggregate_(current);
     } finally { lock.releaseLock(); }
   }
-  return { create: create, save: save, saveTeacherCommitment: saveTeacherCommitment, get: get, list: list, raw: raw_, aggregate: aggregate_, toCamel: toCamel_, descriptorFor: descriptorFor_ };
+  return { create: create, save: save, applyDraft: applyDraft_, saveTeacherCommitment: saveTeacherCommitment, get: get, list: list, raw: raw_, aggregate: aggregate_, toCamel: toCamel_, descriptorFor: descriptorFor_ };
 })();

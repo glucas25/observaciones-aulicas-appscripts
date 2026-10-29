@@ -1,6 +1,12 @@
 var SheetsRepository = (function () {
   var _ss = null;
   var _sheets = {};
+  var _cache = {};
+  function flush_() {
+    if (typeof SpreadsheetApp !== 'undefined' && SpreadsheetApp.flush) {
+      try { SpreadsheetApp.flush(); } catch (_) {}
+    }
+  }
   function spreadsheet_() {
     if (_ss) return _ss;
     var id = AppConfig.get().spreadsheetId;
@@ -56,9 +62,15 @@ var SheetsRepository = (function () {
     return out;
   }
   function all(name) {
+    if (_cache && _cache[name]) return _cache[name];
     var sheet = sheet_(name), headers = header_(sheet), last = sheet.getLastRow();
-    if (last < 2) return [];
-    return sheet.getRange(2, 1, last - 1, headers.length).getValues().map(function (r) { return toObject_(headers, r); });
+    if (last < 2) {
+      if (_cache) _cache[name] = [];
+      return [];
+    }
+    var rows = sheet.getRange(2, 1, last - 1, headers.length).getValues().map(function (r) { return toObject_(headers, r); });
+    if (_cache) _cache[name] = rows;
+    return rows;
   }
   function ensureColumns(name, expectedHeaders) {
     var sheet = sheet_(name), actual = header_(sheet), expected = expectedHeaders || [];
@@ -85,7 +97,21 @@ var SheetsRepository = (function () {
     var sheet = sheet_(name), headers = header_(sheet);
     sheet.appendRow(headers.map(function (h) { return Validation.safeCell(object[h]); }));
     _sheets[name] = null; // invalida cache tras escritura
+    if (_cache) _cache[name] = null;
+    flush_();
     return object;
+  }
+  function appendBatch(name, objects, skipFlush) {
+    if (!objects || !objects.length) return objects;
+    var sheet = sheet_(name), headers = header_(sheet), last = sheet.getLastRow();
+    var values = objects.map(function (obj) {
+      return headers.map(function (h) { return Validation.safeCell(obj[h]); });
+    });
+    sheet.getRange(last + 1, 1, values.length, headers.length).setValues(values);
+    _sheets[name] = null;
+    if (_cache) _cache[name] = null;
+    if (!skipFlush) flush_();
+    return objects;
   }
   function upsert(name, keyFields, object) {
     var sheet = sheet_(name), headers = header_(sheet), last = sheet.getLastRow(), rows = last < 2 ? [] : sheet.getRange(2, 1, last - 1, headers.length).getValues();
@@ -100,15 +126,19 @@ var SheetsRepository = (function () {
     if (rowIndex < 0) sheet.appendRow(values);
     else sheet.getRange(rowIndex, 1, 1, values.length).setValues([values]);
     _sheets[name] = null; // invalida cache tras escritura
+    if (_cache) _cache[name] = null;
+    flush_();
     return object;
   }
-  function removeWhere(name, predicate) {
+  function removeWhere(name, predicate, skipFlush) {
     var sheet = sheet_(name), headers = header_(sheet), last = sheet.getLastRow();
     if (last < 2) return;
     var kept = sheet.getRange(2, 1, last - 1, headers.length).getValues().filter(function (r) { return !predicate(toObject_(headers, r)); });
     sheet.getRange(2, 1, last - 1, headers.length).clearContent();
     if (kept.length) sheet.getRange(2, 1, kept.length, headers.length).setValues(kept);
     _sheets[name] = null; // invalida cache tras escritura
+    if (_cache) _cache[name] = null;
+    if (!skipFlush) flush_();
   }
   function nextSequence(name, year) {
     var row = find('SEQUENCES', 'sequence_name', name);
@@ -116,6 +146,6 @@ var SheetsRepository = (function () {
     upsert('SEQUENCES', ['sequence_name'], { sequence_name: name, year: year, last_value: value, updated_at: JsonUtil.now() });
     return value;
   }
-  return { spreadsheet: spreadsheet_, all: all, recent: recent, ensureColumns: ensureColumns, find: find, filter: filter, append: append, upsert: upsert, removeWhere: removeWhere, nextSequence: nextSequence };
+  return { spreadsheet: spreadsheet_, all: all, recent: recent, ensureColumns: ensureColumns, find: find, filter: filter, append: append, appendBatch: appendBatch, upsert: upsert, removeWhere: removeWhere, nextSequence: nextSequence, flush: flush_ };
 })();
 

@@ -35,8 +35,9 @@ var Auth = (function () {
   }
   function teacherForUser(user) {
     if (!user) return null;
+    if (user._cachedTeacher !== undefined) return user._cachedTeacher;
     var email = String(user && user.email || '').trim().toLowerCase();
-    return SheetsRepository.filter('TEACHERS', function (teacher) {
+    var match = SheetsRepository.filter('TEACHERS', function (teacher) {
       if (String(teacher.active).toLowerCase() === 'false') return false;
       var tchEmail = String(teacher.email || '').trim().toLowerCase();
       var tchUserId = teacher.user_id ? String(teacher.user_id) : '';
@@ -45,6 +46,8 @@ var Auth = (function () {
       if (namesMatch_(user.display_name, teacher.full_name)) return true;
       return false;
     })[0] || null;
+    user._cachedTeacher = match;
+    return match;
   }
   function isReceivedVisit_(user, visit) {
     if (!user || !visit) return false;
@@ -67,17 +70,17 @@ var Auth = (function () {
   function canListVisit(user, visit) {
     var userRoles = userRoles_(user);
     if (userRoles.indexOf('ADMIN') >= 0 || userRoles.indexOf('VIEWER') >= 0) return true;
-    if (userRoles.indexOf('DIRECTIVE') >= 0 && !isReceivedVisit_(user, visit)) return String(visit.institution_id) === String(user.institution_id);
     if (String(visit.evaluator_user_id) === String(user.user_id)) return true;
     if (visit.co_evaluator_user_id && String(visit.co_evaluator_user_id) === String(user.user_id)) return true;
+    if (userRoles.indexOf('DIRECTIVE') >= 0 && !isReceivedVisit_(user, visit)) return String(visit.institution_id) === String(user.institution_id);
     return isReceivedVisit_(user, visit);
   }
   function canViewVisit(user, visit) {
     var userRoles = userRoles_(user);
     if (userRoles.indexOf('ADMIN') >= 0 || userRoles.indexOf('VIEWER') >= 0) return true;
-    if (userRoles.indexOf('DIRECTIVE') >= 0 && !isReceivedVisit_(user, visit)) return String(visit.institution_id) === String(user.institution_id);
     if (String(visit.evaluator_user_id) === String(user.user_id)) return true;
     if (visit.co_evaluator_user_id && String(visit.co_evaluator_user_id) === String(user.user_id)) return true;
+    if (userRoles.indexOf('DIRECTIVE') >= 0 && !isReceivedVisit_(user, visit)) return String(visit.institution_id) === String(user.institution_id);
     return isReceivedVisit_(user, visit) && isVisibleToTeacher_(visit);
   }
   function canAccessVisit(user, visit) {

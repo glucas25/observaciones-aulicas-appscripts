@@ -25,8 +25,8 @@ function apiGetVisit(payload){return ApiController.invoke(function(p){return Vis
 function apiCreateVisit(payload){return ApiController.invoke(function(p,r){return VisitService.create(p.visit,r);},payload);}
 function apiSaveVisit(payload){return ApiController.invoke(function(p,r){return VisitService.save(p.visitId,p.visit,p.expectedVersion,r);},payload);}
 function apiSaveTeacherCommitment(payload){return ApiController.invoke(function(p,r){return VisitService.saveTeacherCommitment(p.visitId,p.teacherCommitment,p.expectedVersion,r);},payload);}
-function apiChangeVisitStatus(payload){return ApiController.invoke(function(p,r){return FinalizationService.changeStatus(p.visitId,p.status,p.expectedVersion,r);},payload);}
-function apiFinalizeVisit(payload){return ApiController.invoke(function(p,r){return FinalizationService.finalize(p.visitId,p.expectedVersion,r);},payload);}
+function apiChangeVisitStatus(payload){return ApiController.invoke(function(p,r){return FinalizationService.changeStatus(p.visitId,p.status,p.expectedVersion,p.visit,r);},payload);}
+function apiFinalizeVisit(payload){return ApiController.invoke(function(p,r){return FinalizationService.finalize(p.visitId,p.expectedVersion,p.visit,r);},payload);}
 function apiReopenVisit(payload){return ApiController.invoke(function(p,r){return FinalizationService.reopen(p.visitId,p.reason,r);},payload);}
 function apiAnnulVisit(payload){return ApiController.invoke(function(p,r){return FinalizationService.annul(p.visitId,p.reason,r);},payload);}
 function apiGenerateDocument(payload){return ApiController.invoke(function(p,r){return DocumentService.generate(p.visitId,p.type,p,r);},payload);}
