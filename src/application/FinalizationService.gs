@@ -89,8 +89,11 @@ var FinalizationService = (function () {
   function reopen(visitId,reason,requestId) {
     var actor=Auth.requireRoles(['ADMIN']),why=Validation.required(reason,'Motivo de reapertura',500),row=VisitService.raw(visitId);
     VisitState.assertTransition(row.status,VisitState.values.REOPENED); row.status=VisitState.values.REOPENED; row.data_version=Number(row.data_version)+1; row.row_version=Number(row.row_version)+1;
-    row.reopened_at=JsonUtil.now(); row.reopened_by=actor.user_id; row.reopen_reason=why; row.updated_at=JsonUtil.now(); row.updated_by=actor.user_id;
-    SheetsRepository.upsert('VISITS',['visit_id'],row); Audit.write(actor,'VISIT_REOPENED','VISIT',visitId,row.data_version,requestId,'SUCCESS','Evaluación reabierta',{reason:why}); return VisitService.aggregate(row);
+    var now=JsonUtil.now();
+    row.reopened_at=now; row.reopened_by=actor.user_id; row.reopen_reason=why; row.updated_at=now; row.updated_by=actor.user_id;
+    SheetsRepository.upsert('VISITS',['visit_id'],row);
+    SheetsRepository.filter('DOCUMENTS',function(d){return String(d.visit_id)===String(visitId)&&!d.superseded_at;}).forEach(function(oldDoc){oldDoc.superseded_at=now;SheetsRepository.upsert('DOCUMENTS',['document_id'],oldDoc);});
+    Audit.write(actor,'VISIT_REOPENED','VISIT',visitId,row.data_version,requestId,'SUCCESS','Evaluación reabierta',{reason:why}); return VisitService.aggregate(row);
   }
   function annul(visitId,reason,requestId) {
     var actor=Auth.requireRoles(['ADMIN']),why=Validation.required(reason,'Motivo de anulación',500),row=VisitService.raw(visitId);
